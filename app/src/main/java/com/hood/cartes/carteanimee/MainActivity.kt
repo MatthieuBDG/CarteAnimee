@@ -22,10 +22,11 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.hood.cartes.carteanimee.models.SeriesResponse
 import com.hood.cartes.carteanimee.models.User
 import com.hood.cartes.carteanimee.services.ApiService
 import com.hood.cartes.carteanimee.models.UserResponse
-import com.hood.cartes.carteanimee.models.UserViewModel
+import com.hood.cartes.carteanimee.models.ViewModel
 import com.hood.cartes.carteanimee.ui.theme.CarteAnimeeTheme
 import retrofit2.Call
 import retrofit2.Callback
@@ -34,7 +35,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class MainActivity : ComponentActivity() {
-    val userViewModel = UserViewModel()
+    val viewModel = ViewModel()
 
     private val apiService: ApiService by lazy {
         Retrofit.Builder()
@@ -43,14 +44,12 @@ class MainActivity : ComponentActivity() {
             .build()
             .create(ApiService::class.java)
     }
-
-
     @Composable
     fun MyApp() {
         val navController = rememberNavController()
         NavHost(navController = navController, startDestination = "login") {
             composable("login") { LoginScreen(navController) }
-            composable("series") { SeriesScreen(navController, userViewModel) }
+            composable("series") { SeriesScreen(navController, viewModel) }
         }
     }
 
@@ -103,7 +102,7 @@ class MainActivity : ComponentActivity() {
                 keyboardActions = KeyboardActions(
                     onDone = {
                         // Appeler la fonction de connexion lorsque l'utilisateur appuie sur "Entrée" depuis le champ de mot de passe
-                        login(email, password, navController) { user -> loggedInUser = user }
+                        login(email, password, navController)
                         keyboardController?.hide()
                     }
                 ),
@@ -112,32 +111,43 @@ class MainActivity : ComponentActivity() {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { login(email, password, navController) { user -> loggedInUser = user } },
+                onClick = { login(email, password, navController) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Connexion")
             }
-
-            loggedInUser?.let { user ->
-                Text("Salut, ${user.Prenom} ${user.Nom} ${user.ID_Role} ${user.Role} !")
-                // Afficher d'autres informations de l'utilisateur si nécessaire
-            }
         }
     }
     @Composable
-    fun SeriesScreen(navController: NavController, userViewModel: UserViewModel) {
-        // Utilisez l'ID de l'utilisateur comme bon vous semble
-        val userId = userViewModel.userId
-        Text(
-            text = "text",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        Toast.makeText(this@MainActivity, "ID de l'utilisateur : $userId", Toast.LENGTH_SHORT).show()
+    fun SeriesScreen(navController: NavController, viewModel: ViewModel) {
+        val series = viewModel.series
+
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Choisir une série",
+                style = MaterialTheme.typography.titleMedium
+            )
+            // Afficher les options de série
+            series.forEach { serie ->
+                Button(
+                    onClick = {
+                        // Gérer la sélection de la série
+                        // Par exemple, vous pouvez naviguer vers l'écran de jeu avec l'ID de série sélectionné
+                        navController.navigate("game/${serie.ID_Serie}")
+                    }
+                ) {
+                    Text(text = serie.Nom)
+                }
+            }
+        }
     }
 
     // Fonction pour gérer la connexion
-    private fun login(email: String, password: String, navController: NavController, onSuccess: (User?) -> Unit) {
+// Fonction pour gérer la connexion
+    private fun login(email: String, password: String, navController: NavController) {
         if (email.isBlank() || password.isBlank()) {
             // Affichez le message d'erreur
             Toast.makeText(this@MainActivity, "Veuillez saisir une adresse email et un mot de passe.", Toast.LENGTH_SHORT).show()
@@ -151,8 +161,15 @@ class MainActivity : ComponentActivity() {
                     if (userResponse?.success == true) {
                         // Connexion réussie, accédez à l'objet user dans userResponse.user
                         val user = userResponse.user
-                        onSuccess(user)
-                        userViewModel.userId = user?.ID_User.toString()
+                        viewModel.userId = user?.ID_User.toString()
+                        viewModel.prenomUser = user?.Prenom.toString()
+                        viewModel.nomUser = user?.Nom.toString()
+                        viewModel.roleIdUser = user?.ID_Role.toString()
+                        viewModel.roleUser = user?.Role.toString()
+
+                        // Maintenant que l'utilisateur est connecté, récupérez les séries
+                        recupSeries(navController,viewModel)
+                        // Puis naviguez vers la destination "series"
                         navController.navigate("series")
                     } else {
                         // Gérez les erreurs de connexion (ex: mot de passe incorrect)
@@ -180,4 +197,57 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
+
+    private fun recupSeries(navController: NavController, viewModel: ViewModel) {
+        if (viewModel.userId.isBlank()) {
+            // Affichez le message d'erreur
+            Toast.makeText(this@MainActivity, "Veuillez saisir un userId.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val call: Call<SeriesResponse> = apiService.recupSeries(viewModel.userId)
+        call.enqueue(object : Callback<SeriesResponse> {
+            override fun onResponse(call: Call<SeriesResponse>, response: Response<SeriesResponse>) {
+                if (response.isSuccessful) {
+                    val seriesResponse = response.body()
+                    if (seriesResponse?.success == true) {
+                        // Connexion réussie, accédez à la liste des séries dans serieResponse.series
+                        val series = seriesResponse.series
+                        if (!series.isNullOrEmpty()) {
+                            // Mettez à jour la liste des séries dans le ViewModel
+                            viewModel.series = series
+                        } else {
+                            // La liste des séries est vide
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Aucune série trouvée pour l'utilisateur.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } else {
+                        // Gérez les erreurs de connexion (ex: mot de passe incorrect)
+                        val errorMsg = seriesResponse?.error_msg ?: "Erreur inconnue"
+                        // Affichez le message d'erreur
+                        Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    // Gestion des erreurs du réseau ou de l'API
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Erreur de connexion. Veuillez réessayer.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+            override fun onFailure(call: Call<SeriesResponse>, t: Throwable) {
+                // Gestion des erreurs lors de l'échec de la requête
+                Toast.makeText(
+                    this@MainActivity,
+                    "Erreur de connexion. Veuillez réessayer.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        })
+    }
+
 }
