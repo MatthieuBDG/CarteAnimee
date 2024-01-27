@@ -2,4 +2,8 @@
 <resources>
 
     <style name="Theme.CarteAnimee" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Autres attributs -->
+    </style>
+
 </resources>
