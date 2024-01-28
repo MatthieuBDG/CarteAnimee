@@ -65,6 +65,7 @@ import java.io.IOException
 
 class MainActivity : ComponentActivity() {
     val viewModel = ViewModel()
+    private lateinit var sessionManager: SessionManager
     private var mediaPlayer: MediaPlayer? = null
     private val baseUrl = "https://www.demineur-ligne.com/PFE/"
     private val apiService: ApiService by lazy {
@@ -76,6 +77,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun MyApp() {
         val navController = rememberNavController()
+        sessionManager = SessionManager(this)
         NavHost(navController = navController, startDestination = "login") {
             composable("login") { LoginScreen(navController) }
             composable("series") { SeriesScreen(navController, viewModel) }
@@ -89,6 +91,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        if (sessionManager.isLoggedIn) {
+            viewModel.userId = sessionManager.userId.toString()
+            viewModel.prenomUser = sessionManager.prenomUser.toString()
+            viewModel.nomUser = sessionManager.nomUser.toString()
+            viewModel.roleIdUser = sessionManager.roleIdUser.toString()
+            viewModel.roleUser = sessionManager.roleUser.toString()
+
+            recupSeries(navController, viewModel)
+            navController.navigate("series")
+        }
+
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,6 +112,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
     @Composable
     fun AnimationsScreen(navController: NavController, viewModel: ViewModel) {
@@ -167,14 +181,14 @@ class MainActivity : ComponentActivity() {
                             })
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = {
+                        mediaPlayer?.apply {
+                            if (isPlaying) {
+                                stop()
+                                reset()
+                            }
+                        }
                         currentIndex = (currentIndex + 1) % animations.size
                         if (currentIndex == 0) {
-                            mediaPlayer?.apply {
-                                if (isPlaying) {
-                                    stop()
-                                    reset()
-                                }
-                            }
                             navController.popBackStack()
                         }
                     }) {
@@ -251,6 +265,8 @@ class MainActivity : ComponentActivity() {
                 .padding(16.dp), contentAlignment = Alignment.TopEnd
         ) {
             Button(onClick = {
+                sessionManager.isLoggedIn = false
+                sessionManager.userId = null
                 navController.navigate("login")
             }) {
                 Text("Déconnexion")
@@ -321,6 +337,13 @@ class MainActivity : ComponentActivity() {
                         viewModel.roleIdUser = user?.ID_Role.toString()
                         viewModel.roleUser = user?.Role.toString()
                         recupSeries(navController, viewModel)
+                        // Après une connexion réussie
+                        sessionManager.isLoggedIn = true
+                        sessionManager.userId = user?.ID_User.toString()
+                        sessionManager.prenomUser = user?.Prenom.toString()
+                        sessionManager.nomUser = user?.Nom.toString()
+                        sessionManager.roleIdUser = user?.ID_Role.toString()
+                        sessionManager.roleUser = user?.Role.toString()
                         navController.navigate("series")
                     } else {
                         val errorMsg = userResponse?.error_msg ?: "Erreur inconnue"
