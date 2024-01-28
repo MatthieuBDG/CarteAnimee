@@ -1,5 +1,6 @@
 package com.hood.cartes.carteanimee.services
 
+import com.hood.cartes.carteanimee.models.AnimationsResponse
 import com.hood.cartes.carteanimee.models.SeriesResponse
 import com.hood.cartes.carteanimee.models.UserResponse
 import retrofit2.Call
@@ -12,8 +13,14 @@ interface ApiService {
         @Query("email") email: String,
         @Query("mdp") password: String
     ): Call<UserResponse>
+
     @GET("recupseries")
     fun recupSeries(
         @Query("id_user") userId: String,
     ): Call<SeriesResponse>
+
+    @GET("recupanimations")
+    fun recupAnimations(
+        @Query("id_serie") serieId: String,
+    ): Call<AnimationsResponse>
 }
