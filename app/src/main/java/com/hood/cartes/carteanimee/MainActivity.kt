@@ -1,15 +1,18 @@
 package com.hood.cartes.carteanimee
 
+import android.annotation.SuppressLint
 import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,14 +20,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import com.hood.cartes.carteanimee.models.Series
+
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,9 +58,14 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -114,198 +141,274 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     @Composable
     fun AnimationsScreen(navController: NavController, viewModel: ViewModel) {
         var currentIndex by remember { mutableIntStateOf(0) }
         val animations = viewModel.animations
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp), contentAlignment = Alignment.TopEnd
-        ) {
-            Button(onClick = {
-                navController.navigate("series")
-                mediaPlayer?.apply {
-                    if (isPlaying) {
-                        stop()
-                        reset()
-                    }
-                }
-            }) {
-                Text("Retour au series")
-            }
-        }
-        Box(
-            modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-        ) {
-            if (animations.isNotEmpty()) {
-                val currentAnimation = animations[currentIndex]
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = currentAnimation.Nom,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    val imageLoader = ImageLoader.Builder(this@MainActivity).components {
-                        if (SDK_INT >= 28) {
-                            add(ImageDecoderDecoder.Factory())
-                        } else {
-                            add(GifDecoder.Factory())
-                        }
-                    }.build()
-                    SubcomposeAsyncImage(model = "$baseUrl${currentAnimation.Chemin_Gif}",
-                        imageLoader = imageLoader,
-                        contentDescription = currentAnimation.Nom,
-                        loading = {
-                            CircularProgressIndicator()
-                        },
-                        modifier = Modifier
-                            .height(200.dp)
-                            .clickable {
-                                mediaPlayer?.apply {
-                                    if (isPlaying) {
-                                        stop()
-                                        reset()
-                                    }
+        Scaffold(
+            topBar = {
+                // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Animation",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.primary,
+                    ),
+
+                    navigationIcon = {
+                        // Ajout d'une icône de déconnexion à droite de la barre d'application
+                        IconButton(onClick = {
+                            navController.navigate("series")
+                            mediaPlayer?.apply {
+                                if (isPlaying) {
+                                    stop()
+                                    reset()
                                 }
-                                mediaPlayer = MediaPlayer().apply {
-                                    try {
-                                        setDataSource("$baseUrl${currentAnimation.Chemin_Audio}")
-                                        prepare()
-                                        start()
-                                    } catch (e: IOException) {
-                                    }
-                                }
-                            })
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        mediaPlayer?.apply {
-                            if (isPlaying) {
-                                stop()
-                                reset()
                             }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowBack,
+                                contentDescription = "Déconnexion"
+                            )
                         }
-                        currentIndex = (currentIndex + 1) % animations.size
-                        if (currentIndex == 0) {
-                            navController.popBackStack()
+                    },
+                )
+            }
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp), contentAlignment = Alignment.TopEnd
+            ) {
+                Button(onClick = {
+                    navController.navigate("series")
+                    mediaPlayer?.apply {
+                        if (isPlaying) {
+                            stop()
+                            reset()
                         }
-                    }) {
-                        Text("Animation suivante")
                     }
+                }) {
+                    Text("Retour au series")
                 }
-            } else {
-                Text("Aucune animation disponible", color = Color.Red)
+            }
+            Box(
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
+            ) {
+                if (animations.isNotEmpty()) {
+                    val currentAnimation = animations[currentIndex]
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = currentAnimation.Nom,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        val imageLoader = ImageLoader.Builder(this@MainActivity).components {
+                            if (SDK_INT >= 28) {
+                                add(ImageDecoderDecoder.Factory())
+                            } else {
+                                add(GifDecoder.Factory())
+                            }
+                        }.build()
+                        SubcomposeAsyncImage(model = "$baseUrl${currentAnimation.Chemin_Gif}",
+                            imageLoader = imageLoader,
+                            contentDescription = currentAnimation.Nom,
+                            loading = {
+                                CircularProgressIndicator()
+                            },
+                            modifier = Modifier
+                                .height(200.dp)
+                                .clickable {
+                                    mediaPlayer?.apply {
+                                        if (isPlaying) {
+                                            stop()
+                                            reset()
+                                        }
+                                    }
+                                    mediaPlayer = MediaPlayer().apply {
+                                        try {
+                                            setDataSource("$baseUrl${currentAnimation.Chemin_Audio}")
+                                            prepare()
+                                            start()
+                                        } catch (_: IOException) {
+                                        }
+                                    }
+                                })
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = {
+                            mediaPlayer?.apply {
+                                if (isPlaying) {
+                                    stop()
+                                    reset()
+                                }
+                            }
+                            currentIndex = (currentIndex + 1) % animations.size
+                            if (currentIndex == 0) {
+                                navController.popBackStack()
+                            }
+                        }) {
+                            Text("Animation suivante")
+                        }
+                    }
+                } else {
+                    Text("Aucune animation disponible", color = Color.Red)
+                }
             }
         }
     }
 
-    @OptIn(ExperimentalComposeUiApi::class)
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
     @Composable
     fun LoginScreen(navController: NavController) {
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
-        var loggedInUser by remember { mutableStateOf<User?>(null) }
         val keyboardController = LocalSoftwareKeyboardController.current
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+        Scaffold(
+            topBar = {
+                // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Connexion à un compte utilisateur",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+            }
         ) {
-            Text(
-                text = "Connexion à un compte utilisateur",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Adresse Email") },
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Next
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Mot de passe") },
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = {
-                    login(email, password, navController)
-                    keyboardController?.hide()
-                }),
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { login(email, password, navController) },
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Connexion")
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Adresse Email") },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Next
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Mot de passe") },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        login(email, password, navController)
+                        keyboardController?.hide()
+                    }),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { login(email, password, navController) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Connexion")
+                }
             }
         }
     }
 
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SeriesScreen(navController: NavController, viewModel: ViewModel) {
         val series = viewModel.series
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp), contentAlignment = Alignment.TopEnd
-        ) {
-            Button(onClick = {
-                sessionManager.isLoggedIn = false
-                sessionManager.userId = null
-                navController.navigate("login")
-            }) {
-                Text("Déconnexion")
+        Scaffold(
+            topBar = {
+                // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Séries",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    navigationIcon = {
+                        // Ajout d'une icône de déconnexion à droite de la barre d'application
+                        IconButton(onClick = {
+                            sessionManager.isLoggedIn = false
+                            sessionManager.userId = null
+                            navController.navigate("login")
+                        }) {
+                            Icon(
+                                imageVector = Icons.Rounded.ExitToApp,
+                                contentDescription = "Déconnexion"
+                            )
+                        }
+                    },
+                )
             }
-        }
-
-        Box(
-            modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+            Box(
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Bienvenue ${viewModel.prenomUser} ${viewModel.nomUser}",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                Text(
-                    text = "Choix de la série : ",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                LazyColumn(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.Center,
+                Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val chunkedSeries = series.chunked(3)
-                    items(chunkedSeries) { rowSeries ->
-                        Row(Modifier.fillMaxWidth()) {
-                            rowSeries.forEach { serie ->
-                                Button(
-                                    onClick = {
-                                        recupAnimations(navController, viewModel, serie.ID_Serie)
-                                    }, modifier = Modifier.padding(8.dp)
-                                ) {
-                                    Text(text = serie.Nom)
+                    // Utilisation d'un style de texte différent pour les deux textes
+                    Text(
+                        text = "Bienvenue ${viewModel.prenomUser} ${viewModel.nomUser}",
+                        style = MaterialTheme.typography.titleLarge.copy(color = Color.Black),
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    Text(
+                        text = "Choix de la série : ",
+                        style = MaterialTheme.typography.titleLarge.copy(color = Color.Gray),
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp) // Ajouté
+                    ) {
+                        val chunkedSeries = series.chunked(3)
+                        items(chunkedSeries) { rowSeries ->
+                            Row(Modifier.fillMaxWidth()) {
+                                rowSeries.forEach { serie ->
+                                    ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
+                                        shape = RoundedCornerShape(8.dp),
+                                        elevation = CardDefaults.cardElevation(
+                                            defaultElevation = 4.dp
+                                        ),
+                                        modifier = Modifier.padding(8.dp),
+                                        onClick = {
+                                            recupAnimations(navController, viewModel, serie.ID_Serie)
+                                        }
+                                    ) {
+                                        Text(text = serie.Nom, modifier = Modifier.padding(16.dp))
+                                    }
                                 }
                             }
                         }
@@ -314,7 +417,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
     private fun login(email: String, password: String, navController: NavController) {
         if (email.isBlank() || password.isBlank()) {
             Toast.makeText(
