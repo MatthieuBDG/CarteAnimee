@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -153,7 +155,7 @@ class MainActivity : ComponentActivity() {
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            "Animation",
+                            "Série : ${viewModel.currentSerieName}",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -210,8 +212,8 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text(
                             text = currentAnimation.Nom,
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold
                         )
                         val imageLoader = ImageLoader.Builder(this@MainActivity).components {
                             if (SDK_INT >= 28) {
@@ -227,7 +229,9 @@ class MainActivity : ComponentActivity() {
                                 CircularProgressIndicator()
                             },
                             modifier = Modifier
-                                .height(200.dp)
+                                .fillMaxWidth() // Remplir la largeur maximale de l'écran
+                                .padding(15.dp) // Ajouter une marge de 10dp de chaque côté
+                                .clip(RoundedCornerShape(20.dp)) // Arrondir les coins avec un rayon de 20dp
                                 .clickable {
                                     mediaPlayer?.apply {
                                         if (isPlaying) {
@@ -404,6 +408,7 @@ class MainActivity : ComponentActivity() {
                                         ),
                                         modifier = Modifier.padding(8.dp),
                                         onClick = {
+                                            viewModel.currentSerieName = serie.Nom
                                             recupAnimations(navController, viewModel, serie.ID_Serie)
                                         }
                                     ) {
@@ -483,6 +488,7 @@ class MainActivity : ComponentActivity() {
                     if (animationsResponse?.success == true) {
                         val animations = animationsResponse.animations
                         if (!animations.isNullOrEmpty()) {
+
                             navController.navigate("animations/$serieId") {
                                 launchSingleTop = true
                             }
@@ -516,6 +522,7 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
+
 
     private fun recupSeries(navController: NavController, viewModel: ViewModel) {
         if (viewModel.userId.isBlank()) {

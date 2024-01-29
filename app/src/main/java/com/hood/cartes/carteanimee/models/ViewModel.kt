@@ -13,7 +13,7 @@ class ViewModel {
     var roleUser by mutableStateOf("")
     /* Series */
     var series: List<Series> = listOf()
-
+    var currentSerieName by mutableStateOf("")
     /* Animations */
     var animations: List<Animations> = listOf()
 }
