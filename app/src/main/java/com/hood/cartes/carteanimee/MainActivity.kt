@@ -1,11 +1,11 @@
 package com.hood.cartes.carteanimee
 
 import android.annotation.SuppressLint
-import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -53,6 +57,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -88,9 +93,12 @@ import retrofit2.converter.gson.GsonConverterFactory
 class MainActivity : ComponentActivity() {
     val viewModel = ViewModel()
     private lateinit var sessionManager: SessionManager
-    private var mediaPlayer: MediaPlayer? = null
-
-
+    private lateinit var player: ExoPlayer
+    private lateinit var snackState: SnackbarHostState
+    private lateinit var coroutineScope: CoroutineScope
+    private var barColor: Color? = null
+    private var barTitre: Color? = null
+    private var Titre: Color? = null
     private val baseUrl = "https://www.demineur-ligne.com/PFE/"
     private val apiService: ApiService by lazy {
         Retrofit.Builder().baseUrl("$baseUrl/api/")
@@ -101,9 +109,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun MyApp() {
         val navController = rememberNavController()
-        val snackState = remember { SnackbarHostState() }
-        val coroutineScope = rememberCoroutineScope()
+        snackState = remember { SnackbarHostState() }
+        coroutineScope = rememberCoroutineScope()
         sessionManager = SessionManager(this)
+        barColor = Color(LocalContext.current.resources.getColor(R.color.bar))
+        barTitre = Color(LocalContext.current.resources.getColor(R.color.titrebar))
+        Titre = Color(LocalContext.current.resources.getColor(R.color.titre))
+
         NavHost(navController = navController, startDestination = "login") {
             composable("login") { LoginScreen(navController) }
             composable("series") { SeriesScreen(navController, viewModel) }
@@ -124,7 +136,7 @@ class MainActivity : ComponentActivity() {
             viewModel.roleIdUser = sessionManager.roleIdUser.toString()
             viewModel.roleUser = sessionManager.roleUser.toString()
 
-            recupSeries(navController, viewModel, snackState, coroutineScope)
+            recupSeries(navController, viewModel)
             navController.navigate("series")
         }
 
@@ -147,9 +159,7 @@ class MainActivity : ComponentActivity() {
     fun AnimationsScreen(navController: NavController, viewModel: ViewModel) {
         var currentIndex by remember { mutableIntStateOf(0) }
         val animations = viewModel.animations
-        val snackState = remember { SnackbarHostState() }
-        val coroutineScope = rememberCoroutineScope()
-        val player = ExoPlayer.Builder(this@MainActivity).build()
+        player = ExoPlayer.Builder(this).build()
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -162,8 +172,8 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.primary,
+                        containerColor = barColor!!,
+                        titleContentColor = barTitre!!,
                     ),
 
                     navigationIcon = {
@@ -175,6 +185,7 @@ class MainActivity : ComponentActivity() {
                         }) {
                             Icon(
                                 imageVector = Icons.Rounded.ArrowBack,
+                                tint = Titre!!,
                                 contentDescription = "Déconnexion"
                             )
                         }
@@ -186,19 +197,6 @@ class MainActivity : ComponentActivity() {
             }
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp), contentAlignment = Alignment.TopEnd
-            ) {
-                Button(onClick = {
-                    navController.navigate("series")
-                    player.stop()
-                    player.release()
-                }) {
-                    Text("Retour au series")
-                }
-            }
-            Box(
                 modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
                 if (animations.isNotEmpty()) {
@@ -208,8 +206,9 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text(
                             text = currentAnimation.Nom,
-                            style = MaterialTheme.typography.displaySmall,
+                            style = MaterialTheme.typography.displaySmall.copy(Titre!!),
                             fontWeight = FontWeight.Bold
+
                         )
                         val imageLoader = ImageLoader.Builder(this@MainActivity).components {
                             if (SDK_INT >= 28) {
@@ -237,16 +236,22 @@ class MainActivity : ComponentActivity() {
                                     player.play()
                                 })
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = {
+                        Button(colors = ButtonDefaults.buttonColors(
+                            barColor!!,
+                            contentColor = barTitre!!
+                        ), onClick = {
                             player.stop()
-                            currentIndex = (currentIndex + 1) % animations.size
-                            if (currentIndex == 0) {
-                                navController.navigate("series")
+                            if (currentIndex < animations.size - 1) {
+                                currentIndex = (currentIndex + 1) % animations.size
+                            } else {
+                                // Naviguer vers l'écran de série lorsque la série d'animations est terminée
                                 player.release()
+                                navController.navigate("series")
                             }
                         }) {
                             Text("Animation suivante")
                         }
+
                     }
                 } else {
                     coroutineScope.launch {
@@ -267,8 +272,6 @@ class MainActivity : ComponentActivity() {
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         val keyboardController = LocalSoftwareKeyboardController.current
-        val snackState = remember { SnackbarHostState() }
-        val coroutineScope = rememberCoroutineScope()
 
         Scaffold(
             topBar = {
@@ -282,8 +285,8 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.primary,
+                        containerColor = barColor!!,
+                        titleContentColor = barTitre!!,
                     ),
                 )
             },
@@ -316,7 +319,7 @@ class MainActivity : ComponentActivity() {
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(onDone = {
-                        login(email, password, navController, snackState, coroutineScope)
+                        login(email, password, navController)
                         keyboardController?.hide()
                     }),
                     visualTransformation = PasswordVisualTransformation(),
@@ -324,7 +327,11 @@ class MainActivity : ComponentActivity() {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { login(email, password, navController, snackState, coroutineScope) },
+                    colors = ButtonDefaults.buttonColors(
+                        barColor!!,
+                        contentColor = barTitre!!
+                    ),
+                    onClick = { login(email, password, navController) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Connexion")
@@ -337,11 +344,19 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun ShowSnackBarHost(snackState: SnackbarHostState) {
+
         SnackbarHost(
             hostState = snackState,
             modifier = Modifier
                 .fillMaxWidth()
-        )
+
+        ) {
+            Snackbar(
+                snackbarData = it,
+                containerColor = barColor!!,
+
+                )
+        }
     }
 
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -349,8 +364,6 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SeriesScreen(navController: NavController, viewModel: ViewModel) {
         val series = viewModel.series
-        val snackState = remember { SnackbarHostState() }
-        val coroutineScope = rememberCoroutineScope()
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -363,8 +376,8 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.primary,
+                        containerColor = barColor!!,
+                        titleContentColor = barTitre!!,
                     ),
                     navigationIcon = {
                         // Ajout d'une icône de déconnexion à droite de la barre d'application
@@ -375,6 +388,7 @@ class MainActivity : ComponentActivity() {
                         }) {
                             Icon(
                                 imageVector = Icons.Rounded.ExitToApp,
+                                tint = Titre!!,
                                 contentDescription = "Déconnexion"
                             )
                         }
@@ -394,43 +408,53 @@ class MainActivity : ComponentActivity() {
                     // Utilisation d'un style de texte différent pour les deux textes
                     Text(
                         text = "Bienvenue ${viewModel.prenomUser} ${viewModel.nomUser}",
-                        style = MaterialTheme.typography.titleLarge.copy(color = Color.Black),
+                        style = MaterialTheme.typography.titleLarge.copy(Titre!!),
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                     Text(
                         text = "Choix de la série : ",
-                        style = MaterialTheme.typography.titleLarge.copy(color = Color.Gray),
+                        style = MaterialTheme.typography.titleLarge.copy(Titre!!),
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(
-                            horizontal = 16.dp,
-                            vertical = 8.dp
-                        ) // Ajouté
-                    ) {
-                        val chunkedSeries = series.chunked(3)
-                        items(chunkedSeries) { rowSeries ->
-                            Row(Modifier.fillMaxWidth()) {
-                                rowSeries.forEach { serie ->
-                                    ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
-                                        shape = RoundedCornerShape(8.dp),
-                                        elevation = CardDefaults.cardElevation(
-                                            defaultElevation = 4.dp
-                                        ),
-                                        modifier = Modifier.padding(8.dp),
-                                        onClick = {
-                                            viewModel.currentSerieName = serie.Nom
-                                            recupAnimations(
-                                                navController,
-                                                viewModel,
-                                                serie.ID_Serie, snackState, coroutineScope
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            contentPadding = PaddingValues(
+                                horizontal = 16.dp,
+                                vertical = 8.dp
+                            ) // Ajouté
+                        ) {
+                            val chunkedSeries = series.chunked(3)
+                            items(chunkedSeries) { rowSeries ->
+                                Row(Modifier.fillMaxWidth()) {
+                                    rowSeries.forEach { serie ->
+                                        ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
+                                            shape = RoundedCornerShape(8.dp),
+                                            elevation = CardDefaults.cardElevation(
+                                                defaultElevation = 4.dp
+                                            ),
+                                            modifier = Modifier
+                                                .padding(8.dp),
+                                            onClick = {
+                                                viewModel.currentSerieName = serie.Nom
+                                                recupAnimations(
+                                                    navController,
+                                                    viewModel,
+                                                    serie.ID_Serie
+                                                )
+                                            }
+                                        ) {
+                                            Text(
+                                                text = serie.Nom,
+                                                modifier = Modifier.padding(10.dp),
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    Titre!!
+                                                ),
                                             )
+
                                         }
-                                    ) {
-                                        Text(text = serie.Nom, modifier = Modifier.padding(16.dp))
-                                    }
+
                                 }
                             }
                         }
@@ -441,9 +465,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun login(
-        email: String, password: String, navController: NavController,
-        snackState: SnackbarHostState,
-        coroutineScope: CoroutineScope
+        email: String, password: String, navController: NavController
     ) {
         if (email.isBlank() || password.isBlank()) {
             coroutineScope.launch {
@@ -466,7 +488,7 @@ class MainActivity : ComponentActivity() {
                         viewModel.nomUser = user?.Nom.toString()
                         viewModel.roleIdUser = user?.ID_Role.toString()
                         viewModel.roleUser = user?.Role.toString()
-                        recupSeries(navController, viewModel, snackState, coroutineScope)
+                        recupSeries(navController, viewModel)
                         // Après une connexion réussie
                         sessionManager.isLoggedIn = true
                         sessionManager.userId = user?.ID_User.toString()
@@ -509,9 +531,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun recupAnimations(
-        navController: NavController, viewModel: ViewModel, serieId: String,
-        snackState: SnackbarHostState,
-        coroutineScope: CoroutineScope
+        navController: NavController, viewModel: ViewModel, serieId: String
     ) {
         val call: Call<AnimationsResponse> = apiService.recupAnimations(serieId)
         call.enqueue(object : Callback<AnimationsResponse> {
@@ -568,9 +588,7 @@ class MainActivity : ComponentActivity() {
 
 
     private fun recupSeries(
-        navController: NavController, viewModel: ViewModel,
-        snackState: SnackbarHostState,
-        coroutineScope: CoroutineScope
+        navController: NavController, viewModel: ViewModel
     ) {
         if (viewModel.userId.isBlank()) {
             // Affichez le message d'erreur
@@ -643,5 +661,21 @@ class MainActivity : ComponentActivity() {
     @Deprecated("Deprecated in Java")
     @SuppressLint("MissingSuperCall")
     override fun onBackPressed() {
+        coroutineScope.launch {
+            snackState.showSnackbar(
+                "Impossible de faire un retour arriere",
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        player.stop()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        player.release()
     }
 }
