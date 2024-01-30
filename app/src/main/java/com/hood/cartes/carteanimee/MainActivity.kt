@@ -4,10 +4,8 @@ import android.annotation.SuppressLint
 import android.media.MediaPlayer
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,27 +13,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import com.hood.cartes.carteanimee.models.Series
-
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,6 +36,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -53,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -60,14 +54,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -80,22 +73,24 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import com.hood.cartes.carteanimee.models.AnimationsResponse
 import com.hood.cartes.carteanimee.models.SeriesResponse
-import com.hood.cartes.carteanimee.models.User
 import com.hood.cartes.carteanimee.models.UserResponse
 import com.hood.cartes.carteanimee.models.ViewModel
 import com.hood.cartes.carteanimee.services.ApiService
 import com.hood.cartes.carteanimee.ui.theme.CarteAnimeeTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.io.IOException
 
 class MainActivity : ComponentActivity() {
     val viewModel = ViewModel()
     private lateinit var sessionManager: SessionManager
     private var mediaPlayer: MediaPlayer? = null
+
+
     private val baseUrl = "https://www.demineur-ligne.com/PFE/"
     private val apiService: ApiService by lazy {
         Retrofit.Builder().baseUrl("$baseUrl/api/")
@@ -106,6 +101,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun MyApp() {
         val navController = rememberNavController()
+        val snackState = remember { SnackbarHostState() }
+        val coroutineScope = rememberCoroutineScope()
         sessionManager = SessionManager(this)
         NavHost(navController = navController, startDestination = "login") {
             composable("login") { LoginScreen(navController) }
@@ -127,11 +124,12 @@ class MainActivity : ComponentActivity() {
             viewModel.roleIdUser = sessionManager.roleIdUser.toString()
             viewModel.roleUser = sessionManager.roleUser.toString()
 
-            recupSeries(navController, viewModel)
+            recupSeries(navController, viewModel, snackState, coroutineScope)
             navController.navigate("series")
         }
 
     }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -144,11 +142,14 @@ class MainActivity : ComponentActivity() {
 
 
     @OptIn(ExperimentalMaterial3Api::class)
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter", "CoroutineCreationDuringComposition")
     @Composable
     fun AnimationsScreen(navController: NavController, viewModel: ViewModel) {
         var currentIndex by remember { mutableIntStateOf(0) }
         val animations = viewModel.animations
+        val snackState = remember { SnackbarHostState() }
+        val coroutineScope = rememberCoroutineScope()
+        val player = ExoPlayer.Builder(this@MainActivity).build()
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -169,12 +170,8 @@ class MainActivity : ComponentActivity() {
                         // Ajout d'une icône de déconnexion à droite de la barre d'application
                         IconButton(onClick = {
                             navController.navigate("series")
-                            mediaPlayer?.apply {
-                                if (isPlaying) {
-                                    stop()
-                                    reset()
-                                }
-                            }
+                            player.stop()
+                            player.release()
                         }) {
                             Icon(
                                 imageVector = Icons.Rounded.ArrowBack,
@@ -183,6 +180,9 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                 )
+            },
+            bottomBar = {
+                ShowSnackBarHost(snackState)
             }
         ) {
             Box(
@@ -192,12 +192,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 Button(onClick = {
                     navController.navigate("series")
-                    mediaPlayer?.apply {
-                        if (isPlaying) {
-                            stop()
-                            reset()
-                        }
-                    }
+                    player.stop()
+                    player.release()
                 }) {
                     Text("Retour au series")
                 }
@@ -232,52 +228,48 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxWidth() // Remplir la largeur maximale de l'écran
                                 .padding(15.dp) // Ajouter une marge de 10dp de chaque côté
                                 .clip(RoundedCornerShape(20.dp)) // Arrondir les coins avec un rayon de 20dp
+
                                 .clickable {
-                                    mediaPlayer?.apply {
-                                        if (isPlaying) {
-                                            stop()
-                                            reset()
-                                        }
-                                    }
-                                    mediaPlayer = MediaPlayer().apply {
-                                        try {
-                                            setDataSource("$baseUrl${currentAnimation.Chemin_Audio}")
-                                            prepare()
-                                            start()
-                                        } catch (_: IOException) {
-                                        }
-                                    }
+                                    val mediaItem =
+                                        MediaItem.fromUri("$baseUrl${currentAnimation.Chemin_Audio}")
+                                    player.setMediaItem(mediaItem)
+                                    player.prepare()
+                                    player.play()
                                 })
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = {
-                            mediaPlayer?.apply {
-                                if (isPlaying) {
-                                    stop()
-                                    reset()
-                                }
-                            }
+                            player.stop()
                             currentIndex = (currentIndex + 1) % animations.size
                             if (currentIndex == 0) {
-                                navController.popBackStack()
+                                navController.navigate("series")
+                                player.release()
                             }
                         }) {
                             Text("Animation suivante")
                         }
                     }
                 } else {
-                    Text("Aucune animation disponible", color = Color.Red)
+                    coroutineScope.launch {
+                        snackState.showSnackbar(
+                            "Aucune animation disponible",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 }
             }
         }
     }
 
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     @Composable
     fun LoginScreen(navController: NavController) {
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         val keyboardController = LocalSoftwareKeyboardController.current
+        val snackState = remember { SnackbarHostState() }
+        val coroutineScope = rememberCoroutineScope()
+
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -294,6 +286,9 @@ class MainActivity : ComponentActivity() {
                         titleContentColor = MaterialTheme.colorScheme.primary,
                     ),
                 )
+            },
+            bottomBar = {
+                ShowSnackBarHost(snackState)
             }
         ) {
             Column(
@@ -321,7 +316,7 @@ class MainActivity : ComponentActivity() {
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(onDone = {
-                        login(email, password, navController)
+                        login(email, password, navController, snackState, coroutineScope)
                         keyboardController?.hide()
                     }),
                     visualTransformation = PasswordVisualTransformation(),
@@ -329,13 +324,24 @@ class MainActivity : ComponentActivity() {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { login(email, password, navController) },
+                    onClick = { login(email, password, navController, snackState, coroutineScope) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Connexion")
                 }
+
             }
+
         }
+    }
+
+    @Composable
+    fun ShowSnackBarHost(snackState: SnackbarHostState) {
+        SnackbarHost(
+            hostState = snackState,
+            modifier = Modifier
+                .fillMaxWidth()
+        )
     }
 
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -343,7 +349,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SeriesScreen(navController: NavController, viewModel: ViewModel) {
         val series = viewModel.series
-
+        val snackState = remember { SnackbarHostState() }
+        val coroutineScope = rememberCoroutineScope()
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -373,6 +380,9 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                 )
+            },
+            bottomBar = {
+                ShowSnackBarHost(snackState)
             }
         ) {
             Box(
@@ -395,7 +405,10 @@ class MainActivity : ComponentActivity() {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp) // Ajouté
+                        contentPadding = PaddingValues(
+                            horizontal = 16.dp,
+                            vertical = 8.dp
+                        ) // Ajouté
                     ) {
                         val chunkedSeries = series.chunked(3)
                         items(chunkedSeries) { rowSeries ->
@@ -409,7 +422,11 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier.padding(8.dp),
                                         onClick = {
                                             viewModel.currentSerieName = serie.Nom
-                                            recupAnimations(navController, viewModel, serie.ID_Serie)
+                                            recupAnimations(
+                                                navController,
+                                                viewModel,
+                                                serie.ID_Serie, snackState, coroutineScope
+                                            )
                                         }
                                     ) {
                                         Text(text = serie.Nom, modifier = Modifier.padding(16.dp))
@@ -422,13 +439,19 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    private fun login(email: String, password: String, navController: NavController) {
+
+    private fun login(
+        email: String, password: String, navController: NavController,
+        snackState: SnackbarHostState,
+        coroutineScope: CoroutineScope
+    ) {
         if (email.isBlank() || password.isBlank()) {
-            Toast.makeText(
-                this@MainActivity,
-                "Veuillez saisir une adresse email et un mot de passe.",
-                Toast.LENGTH_SHORT
-            ).show()
+            coroutineScope.launch {
+                snackState.showSnackbar(
+                    "Veuillez saisir une adresse email et un mot de passe.",
+                    duration = SnackbarDuration.Short
+                )
+            }
             return
         }
         val call: Call<UserResponse> = apiService.connectAccount(email, password)
@@ -443,7 +466,7 @@ class MainActivity : ComponentActivity() {
                         viewModel.nomUser = user?.Nom.toString()
                         viewModel.roleIdUser = user?.ID_Role.toString()
                         viewModel.roleUser = user?.Role.toString()
-                        recupSeries(navController, viewModel)
+                        recupSeries(navController, viewModel, snackState, coroutineScope)
                         // Après une connexion réussie
                         sessionManager.isLoggedIn = true
                         sessionManager.userId = user?.ID_User.toString()
@@ -454,29 +477,41 @@ class MainActivity : ComponentActivity() {
                         navController.navigate("series")
                     } else {
                         val errorMsg = userResponse?.error_msg ?: "Erreur inconnue"
-                        Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_SHORT).show()
+                        // Afficher un Snackbar avec un message d'erreur
+                        coroutineScope.launch {
+                            snackState.showSnackbar(
+                                errorMsg,
+                                duration = SnackbarDuration.Short
+                            )
+                        }
                     }
                 } else {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Erreur de connexion. Veuillez réessayer.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    // Afficher un Snackbar avec un message d'erreur
+                    coroutineScope.launch {
+                        snackState.showSnackbar(
+                            "Erreur de connexion. Veuillez réessayer.",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 }
             }
 
             override fun onFailure(call: Call<UserResponse>, t: Throwable) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Erreur de connexion. Veuillez réessayer.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                // Afficher un Snackbar avec un message d'erreur
+                coroutineScope.launch {
+                    snackState.showSnackbar(
+                        "Erreur de connexion. Veuillez réessayer.",
+                        duration = SnackbarDuration.Short
+                    )
+                }
             }
         })
     }
 
     private fun recupAnimations(
-        navController: NavController, viewModel: ViewModel, serieId: String
+        navController: NavController, viewModel: ViewModel, serieId: String,
+        snackState: SnackbarHostState,
+        coroutineScope: CoroutineScope
     ) {
         val call: Call<AnimationsResponse> = apiService.recupAnimations(serieId)
         call.enqueue(object : Callback<AnimationsResponse> {
@@ -494,41 +529,57 @@ class MainActivity : ComponentActivity() {
                             }
                             viewModel.animations = animations
                         } else {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Aucune animation trouvée pour la série.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            coroutineScope.launch {
+                                snackState.showSnackbar(
+                                    "Aucune animation trouvée pour la série.",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
                         }
                     } else {
                         val errorMsg = animationsResponse?.error_msg ?: "Erreur inconnue"
-                        Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_SHORT).show()
+                        coroutineScope.launch {
+                            snackState.showSnackbar(
+                                errorMsg,
+                                duration = SnackbarDuration.Short
+                            )
+                        }
                     }
                 } else {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Erreur de récupération des animations. Veuillez réessayer.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    coroutineScope.launch {
+                        snackState.showSnackbar(
+                            "Erreur de récupération des animations. Veuillez réessayer.",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 }
             }
 
             override fun onFailure(call: Call<AnimationsResponse>, t: Throwable) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Erreur de récupération des animations. Veuillez réessayer.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                coroutineScope.launch {
+                    snackState.showSnackbar(
+                        "Erreur de récupération des animations. Veuillez réessayer.",
+                        duration = SnackbarDuration.Short
+                    )
+                }
             }
         })
     }
 
 
-    private fun recupSeries(navController: NavController, viewModel: ViewModel) {
+    private fun recupSeries(
+        navController: NavController, viewModel: ViewModel,
+        snackState: SnackbarHostState,
+        coroutineScope: CoroutineScope
+    ) {
         if (viewModel.userId.isBlank()) {
             // Affichez le message d'erreur
-            Toast.makeText(this@MainActivity, "Veuillez saisir un userId.", Toast.LENGTH_SHORT)
-                .show()
+            coroutineScope.launch {
+                snackState.showSnackbar(
+                    "Veuillez saisir un userId.",
+                    duration = SnackbarDuration.Short
+                )
+            }
             return
         }
         val call: Call<SeriesResponse> = apiService.recupSeries(viewModel.userId)
@@ -546,36 +597,51 @@ class MainActivity : ComponentActivity() {
                             viewModel.series = series
                         } else {
                             // La liste des séries est vide
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Aucune série trouvée pour l'utilisateur.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            coroutineScope.launch {
+                                snackState.showSnackbar(
+                                    "Aucune série trouvée pour l'utilisateur.",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
                         }
                     } else {
                         // Gérez les erreurs de connexion (ex: mot de passe incorrect)
                         val errorMsg = seriesResponse?.error_msg ?: "Erreur inconnue"
                         // Affichez le message d'erreur
-                        Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_SHORT).show()
+                        coroutineScope.launch {
+                            snackState.showSnackbar(
+                                errorMsg,
+                                duration = SnackbarDuration.Short
+                            )
+                        }
                     }
                 } else {
                     // Gestion des erreurs du réseau ou de l'API
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Erreur de connexion. Veuillez réessayer.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    coroutineScope.launch {
+                        snackState.showSnackbar(
+                            "Erreur de connexion. Veuillez réessayer.",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 }
             }
 
             override fun onFailure(call: Call<SeriesResponse>, t: Throwable) {
                 // Gestion des erreurs lors de l'échec de la requête
-                Toast.makeText(
-                    this@MainActivity,
-                    "Erreur de connexion. Veuillez réessayer.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                coroutineScope.launch {
+                    snackState.showSnackbar(
+                        "Erreur de connexion. Veuillez réessayer.",
+                        duration = SnackbarDuration.Short
+                    )
+                }
             }
+
         })
+
+    }
+
+    @Deprecated("Deprecated in Java")
+    @SuppressLint("MissingSuperCall")
+    override fun onBackPressed() {
     }
 }
