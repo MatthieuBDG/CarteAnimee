@@ -110,7 +110,6 @@ class MainActivity : ComponentActivity() {
         navController = rememberNavController()
         snackState = remember { SnackbarHostState() }
         coroutineScope = rememberCoroutineScope()
-        player = ExoPlayer.Builder(this).build()
         sessionManager = SessionManager(this)
         barColor = Color(LocalContext.current.resources.getColor(R.color.bar))
         barTitre = Color(LocalContext.current.resources.getColor(R.color.titrebar))
@@ -149,6 +148,8 @@ class MainActivity : ComponentActivity() {
                 MyApp()
             }
         }
+
+
     }
 
 
@@ -158,6 +159,7 @@ class MainActivity : ComponentActivity() {
     fun AnimationsScreen() {
         var currentIndex by remember { mutableIntStateOf(0) }
         val animations = viewModel.animations
+        player = ExoPlayer.Builder(this).build()
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -693,7 +695,7 @@ class MainActivity : ComponentActivity() {
             )
         }
     }
-
+/*
     override fun onStop() {
         super.onStop()
         player.stop()
@@ -703,4 +705,5 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         player.release()
     }
+ */
 }
