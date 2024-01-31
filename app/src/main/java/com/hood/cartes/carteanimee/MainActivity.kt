@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
             viewModel.nomUser = sessionManager.nomUser.toString()
             viewModel.roleIdUser = sessionManager.roleIdUser.toString()
             viewModel.roleUser = sessionManager.roleUser.toString()
-
+            loadSeriesApi()
             navController.navigate("series")
         }
 
@@ -158,7 +158,6 @@ class MainActivity : ComponentActivity() {
     fun AnimationsScreen() {
         var currentIndex by remember { mutableIntStateOf(0) }
         val animations = viewModel.animations
-
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -361,7 +360,6 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SeriesScreen() {
-        loadSeriesApi()
         val series = viewModel.series
         Scaffold(
             topBar = {
@@ -376,6 +374,7 @@ class MainActivity : ComponentActivity() {
                     },
                     actions = {
                         IconButton(onClick = {
+                            loadSeriesApi()
                             navController.navigate("series")
                         }) {
                             Icon(
@@ -516,7 +515,7 @@ class MainActivity : ComponentActivity() {
                         sessionManager.nomUser = user?.Nom.toString()
                         sessionManager.roleIdUser = user?.ID_Role.toString()
                         sessionManager.roleUser = user?.Role.toString()
-
+                        loadSeriesApi()
                         navController.navigate("series")
 
                         coroutineScope.launch {
