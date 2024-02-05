@@ -15,6 +15,7 @@ class ViewModel {
     /* Series */
     var series: List<Series> = listOf()
     var currentSerieName by mutableStateOf("")
+    var series_count by mutableIntStateOf(0)
     /* Animations */
     var animations: List<Animations> = listOf()
     var animations_global by mutableIntStateOf(0)

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +43,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +63,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavHostController
@@ -89,14 +92,17 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class MainActivity : ComponentActivity() {
     val viewModel = ViewModel()
+
     private lateinit var sessionManager: SessionManager
+    private var isLoggedInBlockExecuted = false
     private lateinit var player: ExoPlayer
     private lateinit var snackState: SnackbarHostState
     private lateinit var coroutineScope: CoroutineScope
     private lateinit var navController: NavHostController
     private var barColor: Color? = null
     private var barTitre: Color? = null
-    private var Titre: Color? = null
+    private var titre: Color? = null
+    private lateinit var isLoadingSerie: MutableState<Boolean>
     private val baseUrl = "https://www.demineur-ligne.com/PFE/"
     private val apiService: ApiService by lazy {
         Retrofit.Builder().baseUrl("$baseUrl/api/")
@@ -109,10 +115,11 @@ class MainActivity : ComponentActivity() {
         navController = rememberNavController()
         snackState = remember { SnackbarHostState() }
         coroutineScope = rememberCoroutineScope()
+        isLoadingSerie = remember { mutableStateOf(false) }
         sessionManager = SessionManager(this)
-        barColor = Color(LocalContext.current.resources.getColor(R.color.bar))
-        barTitre = Color(LocalContext.current.resources.getColor(R.color.titrebar))
-        Titre = Color(LocalContext.current.resources.getColor(R.color.titre))
+        barColor = Color(ContextCompat.getColor(applicationContext, R.color.bar))
+        barTitre = Color(ContextCompat.getColor(applicationContext, R.color.titrebar))
+        titre = Color(ContextCompat.getColor(applicationContext, R.color.titre))
 
         NavHost(navController = navController, startDestination = "login") {
             composable("login") { LoginScreen() }
@@ -127,7 +134,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        if (sessionManager.isLoggedIn) {
+
+        if (sessionManager.isLoggedIn && !isLoggedInBlockExecuted) {
+            isLoggedInBlockExecuted = true
             viewModel.userId = sessionManager.userId.toString()
             viewModel.prenomUser = sessionManager.prenomUser.toString()
             viewModel.nomUser = sessionManager.nomUser.toString()
@@ -205,7 +214,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text(
                             text = currentAnimation.Nom,
-                            style = MaterialTheme.typography.displaySmall.copy(Titre!!),
+                            style = MaterialTheme.typography.displaySmall.copy(titre!!),
                             fontWeight = FontWeight.Bold
 
                         )
@@ -220,7 +229,11 @@ class MainActivity : ComponentActivity() {
                             imageLoader = imageLoader,
                             contentDescription = currentAnimation.Nom,
                             loading = {
-                                CircularProgressIndicator()
+                                CircularProgressIndicator(
+                                    modifier = Modifier.width(64.dp),
+                                    color = titre!!,
+                                    trackColor = barTitre!!,
+                                )
                             },
                             modifier = Modifier
                                 .fillMaxWidth() // Remplir la largeur maximale de l'écran
@@ -244,8 +257,8 @@ class MainActivity : ComponentActivity() {
                                 currentIndex = (currentIndex + 1) % animations.size
                                 viewModel.animations_left--
                             } else {
-                                // Naviguer vers l'écran de série lorsque la série d'animations est terminée
                                 player.release()
+                                // Naviguer vers l'écran de série lorsque la série d'animations est terminée
                                 navController.navigate("series")
                                 viewModel.animations_left = 0
                             }
@@ -256,12 +269,12 @@ class MainActivity : ComponentActivity() {
                         if (viewModel.animations_left > 1) {
                             Text(
                                 text = "Animations restantes : ${viewModel.animations_left} sur ${viewModel.animations_global}",
-                                style = MaterialTheme.typography.titleMedium.copy(Titre!!),
+                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
                             )
                         } else {
                             Text(
                                 text = "Animation restante : ${viewModel.animations_left} sur ${viewModel.animations_global}",
-                                style = MaterialTheme.typography.titleMedium.copy(Titre!!),
+                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
                             )
                         }
 
@@ -270,7 +283,8 @@ class MainActivity : ComponentActivity() {
                     coroutineScope.launch {
                         snackState.showSnackbar(
                             "Aucune animation disponible",
-                            duration = SnackbarDuration.Short
+                            duration = SnackbarDuration.Short,
+                            withDismissAction = true
                         )
                     }
                 }
@@ -388,15 +402,17 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     actions = {
-                        IconButton(onClick = {
-                            loadSeriesApi()
-                            navController.navigate("series")
-                        }) {
+                        IconButton(
+                            onClick = {
+                                loadSeriesApi()
+                            }
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.Refresh,
                                 tint = barTitre!!,
-                                contentDescription = "Rafraichir les series"
+                                contentDescription = "Rafraîchir les series"
                             )
+
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -428,60 +444,80 @@ class MainActivity : ComponentActivity() {
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Spacer(modifier = Modifier.height(80.dp))
-                    Text(
-                        text = "Choix de la série : ",
-                        style = MaterialTheme.typography.titleLarge.copy(Titre!!),
-                        modifier = Modifier.padding(bottom = 16.dp),
-                        fontWeight = FontWeight.Bold
-                    )
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        items(series.size) { index ->
-                            val serie = series[index]
-                            ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
-                                shape = RoundedCornerShape(10.dp),
-                                elevation = CardDefaults.cardElevation(
-                                    defaultElevation = 10.dp
-                                ),
+                        if (isLoadingSerie.value) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.width(64.dp),
+                                color = titre!!,
+                                trackColor = barTitre!!,
+                            )
+                        } else {
+                        if (series.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(80.dp))
+                            Text(
+                                text = "Choix de la série : ",
+                                style = MaterialTheme.typography.titleLarge.copy(titre!!),
+                                modifier = Modifier.padding(bottom = 16.dp),
+                                fontWeight = FontWeight.Bold
+                            )
 
-                                colors = CardDefaults.cardColors(
-                                    containerColor = barColor!!,
-                                ),
-                                modifier = Modifier
-                                    .padding(8.dp),
-                                onClick = {
-                                    viewModel.currentSerieName = serie.Nom
-                                    recupAnimations(
-                                        serie.ID_Serie
-                                    )
-                                }
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                verticalArrangement = Arrangement.spacedBy(20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    contentAlignment = Alignment.Center
+                                items(series.size) { index ->
+                                    val serie = series[index]
 
-                                ) {
-                                    Text(
-                                        text = serie.Nom,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(20.dp),
-                                        style = MaterialTheme.typography.titleLarge.copy(
-                                            barTitre!!
+                                    ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
+                                        shape = RoundedCornerShape(10.dp),
+                                        elevation = CardDefaults.cardElevation(
+                                            defaultElevation = 10.dp
                                         ),
-                                    )
 
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = barColor!!,
+                                        ),
+                                        modifier = Modifier
+                                            .padding(8.dp),
+                                        onClick = {
+                                            viewModel.currentSerieName = serie.Nom
+                                            recupAnimations(
+                                                serie.ID_Serie
+                                            )
+                                        }
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(),
+                                            contentAlignment = Alignment.Center
+
+                                        ) {
+                                            Text(
+                                                text = "${index + 1}. ${serie.Nom}",
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(20.dp),
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    barTitre!!
+                                                ),
+                                            )
+
+                                        }
+                                    }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "Totales des séries : ${viewModel.series_count}",
+                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
+                                modifier = Modifier.padding(bottom = 16.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
                         }
                     }
                 }
@@ -494,8 +530,10 @@ class MainActivity : ComponentActivity() {
         coroutineScope.launch {
             snackState.showSnackbar(
                 "Chargement des séries en cours...",
-                duration = SnackbarDuration.Short
+                duration = SnackbarDuration.Short,
+                withDismissAction = true
             )
+
         }
         recupSeries()
     }
@@ -507,7 +545,8 @@ class MainActivity : ComponentActivity() {
             coroutineScope.launch {
                 snackState.showSnackbar(
                     "Veuillez saisir une adresse email et un mot de passe.",
-                    duration = SnackbarDuration.Short
+                    duration = SnackbarDuration.Short,
+                    withDismissAction = true
                 )
             }
             return
@@ -537,7 +576,8 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             snackState.showSnackbar(
                                 "Connexion réussi !",
-                                duration = SnackbarDuration.Short
+                                duration = SnackbarDuration.Short,
+                                withDismissAction = true
                             )
                         }
                     } else {
@@ -546,7 +586,8 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             snackState.showSnackbar(
                                 errorMsg,
-                                duration = SnackbarDuration.Short
+                                duration = SnackbarDuration.Short,
+                                withDismissAction = true
                             )
                         }
                     }
@@ -555,7 +596,9 @@ class MainActivity : ComponentActivity() {
                     coroutineScope.launch {
                         snackState.showSnackbar(
                             "Erreur de connexion. Veuillez réessayer.",
-                            duration = SnackbarDuration.Short
+                            duration = SnackbarDuration.Short,
+                            withDismissAction = true
+
                         )
                     }
                 }
@@ -566,7 +609,8 @@ class MainActivity : ComponentActivity() {
                 coroutineScope.launch {
                     snackState.showSnackbar(
                         "Erreur de connexion. Veuillez réessayer.",
-                        duration = SnackbarDuration.Short
+                        duration = SnackbarDuration.Short,
+                        withDismissAction = true
                     )
                 }
             }
@@ -597,7 +641,8 @@ class MainActivity : ComponentActivity() {
                             coroutineScope.launch {
                                 snackState.showSnackbar(
                                     "Aucune animation trouvée pour la série.",
-                                    duration = SnackbarDuration.Short
+                                    duration = SnackbarDuration.Short,
+                                    withDismissAction = true
                                 )
                             }
                         }
@@ -606,7 +651,8 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             snackState.showSnackbar(
                                 errorMsg,
-                                duration = SnackbarDuration.Short
+                                duration = SnackbarDuration.Short,
+                                withDismissAction = true
                             )
                         }
                     }
@@ -614,7 +660,8 @@ class MainActivity : ComponentActivity() {
                     coroutineScope.launch {
                         snackState.showSnackbar(
                             "Erreur de récupération des animations. Veuillez réessayer.",
-                            duration = SnackbarDuration.Short
+                            duration = SnackbarDuration.Short,
+                            withDismissAction = true
                         )
                     }
                 }
@@ -624,7 +671,8 @@ class MainActivity : ComponentActivity() {
                 coroutineScope.launch {
                     snackState.showSnackbar(
                         "Erreur de récupération des animations. Veuillez réessayer.",
-                        duration = SnackbarDuration.Short
+                        duration = SnackbarDuration.Short,
+                        withDismissAction = true
                     )
                 }
             }
@@ -639,11 +687,13 @@ class MainActivity : ComponentActivity() {
             coroutineScope.launch {
                 snackState.showSnackbar(
                     "Veuillez saisir un userId.",
-                    duration = SnackbarDuration.Short
+                    duration = SnackbarDuration.Short,
+                    withDismissAction = true
                 )
             }
             return
         }
+        isLoadingSerie.value = true
         val call: Call<SeriesResponse> = apiService.recupSeries(viewModel.userId)
         call.enqueue(object : Callback<SeriesResponse> {
             override fun onResponse(
@@ -657,12 +707,30 @@ class MainActivity : ComponentActivity() {
                         if (!series.isNullOrEmpty()) {
                             // Mettez à jour la liste des séries dans le ViewModel
                             viewModel.series = series
+                            viewModel.series_count = seriesResponse.series_count
+                            isLoadingSerie.value = false
+                            coroutineScope.launch {
+                                if (seriesResponse.series_count > 1) {
+                                    snackState.showSnackbar(
+                                        "${seriesResponse.series_count} séries récupérées",
+                                        duration = SnackbarDuration.Short,
+                                        withDismissAction = true
+                                    )
+                                } else {
+                                    snackState.showSnackbar(
+                                        "${seriesResponse.series_count} série récupérée",
+                                        duration = SnackbarDuration.Short,
+                                        withDismissAction = true
+                                    )
+                                }
+                            }
                         } else {
                             // La liste des séries est vide
                             coroutineScope.launch {
                                 snackState.showSnackbar(
                                     "Aucune série trouvée pour l'utilisateur.",
-                                    duration = SnackbarDuration.Short
+                                    duration = SnackbarDuration.Short,
+                                    withDismissAction = true
                                 )
                             }
                         }
@@ -673,7 +741,8 @@ class MainActivity : ComponentActivity() {
                         coroutineScope.launch {
                             snackState.showSnackbar(
                                 errorMsg,
-                                duration = SnackbarDuration.Short
+                                duration = SnackbarDuration.Short,
+                                withDismissAction = true
                             )
                         }
                     }
@@ -682,7 +751,8 @@ class MainActivity : ComponentActivity() {
                     coroutineScope.launch {
                         snackState.showSnackbar(
                             "Erreur de connexion. Veuillez réessayer.",
-                            duration = SnackbarDuration.Short
+                            duration = SnackbarDuration.Short,
+                            withDismissAction = true
                         )
                     }
                 }
@@ -693,7 +763,8 @@ class MainActivity : ComponentActivity() {
                 coroutineScope.launch {
                     snackState.showSnackbar(
                         "Erreur de connexion. Veuillez réessayer.",
-                        duration = SnackbarDuration.Short
+                        duration = SnackbarDuration.Short,
+                        withDismissAction = true
                     )
                 }
             }
@@ -708,7 +779,8 @@ class MainActivity : ComponentActivity() {
         coroutineScope.launch {
             snackState.showSnackbar(
                 "Impossible de faire un retour arriere",
-                duration = SnackbarDuration.Short
+                duration = SnackbarDuration.Short,
+                withDismissAction = true
             )
         }
     }
