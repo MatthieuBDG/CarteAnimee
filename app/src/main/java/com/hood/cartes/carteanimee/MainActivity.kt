@@ -78,6 +78,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import com.hood.cartes.carteanimee.models.AnimationsResponse
+import com.hood.cartes.carteanimee.models.Series
 import com.hood.cartes.carteanimee.models.SeriesResponse
 import com.hood.cartes.carteanimee.models.UserResponse
 import com.hood.cartes.carteanimee.models.ViewModel
@@ -104,6 +105,7 @@ class MainActivity : ComponentActivity() {
     private var barTitre: Color? = null
     private var titre: Color? = null
     private lateinit var isLoadingSerie: MutableState<Boolean>
+    private lateinit var seriesList: MutableState<List<Series>>
     private val baseUrl = "https://www.demineur-ligne.com/PFE/"
     private val apiService: ApiService by lazy {
         Retrofit.Builder().baseUrl("$baseUrl/api/")
@@ -117,6 +119,7 @@ class MainActivity : ComponentActivity() {
         snackState = remember { SnackbarHostState() }
         coroutineScope = rememberCoroutineScope()
         isLoadingSerie = remember { mutableStateOf(false) }
+        seriesList = remember { mutableStateOf(viewModel.series) }
         sessionManager = SessionManager(this)
         barColor = Color(ContextCompat.getColor(applicationContext, R.color.bar))
         barTitre = Color(ContextCompat.getColor(applicationContext, R.color.titrebar))
@@ -505,7 +508,6 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SeriesScreen() {
-        val series = viewModel.series
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -570,7 +572,7 @@ class MainActivity : ComponentActivity() {
                             trackColor = barTitre!!,
                         )
                     } else {
-                        if (series.isNotEmpty()) {
+                        if (seriesList.value.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(80.dp))
                             Text(
                                 text = "Choix de la série : ",
@@ -585,8 +587,8 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxHeight(0.85f),
                                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                             ) {
-                                items(series.size) { index ->
-                                    val serie = series[index]
+                                items(seriesList.value.size) { index ->
+                                    val serie = seriesList.value[index]
 
                                     ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
                                         shape = RoundedCornerShape(10.dp),
@@ -825,6 +827,7 @@ class MainActivity : ComponentActivity() {
                         if (!series.isNullOrEmpty()) {
                             // Mettez à jour la liste des séries dans le ViewModel
                             viewModel.series = series
+                            seriesList.value = series
                             viewModel.series_count = seriesResponse.series_count
                             isLoadingSerie.value = false
                             coroutineScope.launch {
