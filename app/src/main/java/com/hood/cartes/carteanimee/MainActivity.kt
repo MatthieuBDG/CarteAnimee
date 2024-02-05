@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,8 +23,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.AccountBox
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -55,7 +57,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -124,6 +125,7 @@ class MainActivity : ComponentActivity() {
         NavHost(navController = navController, startDestination = "login") {
             composable("login") { LoginScreen() }
             composable("series") { SeriesScreen() }
+            composable("userInfo") { UserInfoScreen() }
             composable(
                 route = "animations/{serieId}",
                 arguments = listOf(navArgument("serieId") { type = NavType.StringType })
@@ -139,6 +141,7 @@ class MainActivity : ComponentActivity() {
             isLoggedInBlockExecuted = true
             viewModel.userId = sessionManager.userId.toString()
             viewModel.prenomUser = sessionManager.prenomUser.toString()
+            viewModel.emailUser = sessionManager.emailUser.toString()
             viewModel.nomUser = sessionManager.nomUser.toString()
             viewModel.roleIdUser = sessionManager.roleIdUser.toString()
             viewModel.roleUser = sessionManager.roleUser.toString()
@@ -194,7 +197,7 @@ class MainActivity : ComponentActivity() {
                             Icon(
                                 imageVector = Icons.Rounded.ArrowBack,
                                 tint = barTitre!!,
-                                contentDescription = "Déconnexion"
+                                contentDescription = "Retour Series"
                             )
                         }
                     },
@@ -230,16 +233,15 @@ class MainActivity : ComponentActivity() {
                             contentDescription = currentAnimation.Nom,
                             loading = {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.width(64.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                     color = titre!!,
                                     trackColor = barTitre!!,
                                 )
                             },
                             modifier = Modifier
-                                .fillMaxWidth() // Remplir la largeur maximale de l'écran
                                 .padding(15.dp) // Ajouter une marge de 10dp de chaque côté
+                                .fillMaxWidth()
                                 .clip(RoundedCornerShape(20.dp)) // Arrondir les coins avec un rayon de 20dp
-
                                 .clickable {
                                     val mediaItem =
                                         MediaItem.fromUri("$baseUrl${currentAnimation.Chemin_Audio}")
@@ -247,6 +249,7 @@ class MainActivity : ComponentActivity() {
                                     player.prepare()
                                     player.play()
                                 })
+
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(colors = ButtonDefaults.buttonColors(
                             barColor!!,
@@ -255,25 +258,25 @@ class MainActivity : ComponentActivity() {
                             player.stop()
                             if (currentIndex < animations.size - 1) {
                                 currentIndex = (currentIndex + 1) % animations.size
-                                viewModel.animations_left--
+                                viewModel.animations_pass++
                             } else {
                                 player.release()
                                 // Naviguer vers l'écran de série lorsque la série d'animations est terminée
                                 navController.navigate("series")
-                                viewModel.animations_left = 0
+                                viewModel.animations_pass = 1
                             }
                         }) {
                             Text("Animation suivante")
                         }
                         Spacer(modifier = Modifier.height(30.dp))
-                        if (viewModel.animations_left > 1) {
+                        if (viewModel.animations_global > 1) {
                             Text(
-                                text = "Animations restantes : ${viewModel.animations_left} sur ${viewModel.animations_global}",
+                                text = "Animations : ${viewModel.animations_pass} sur ${viewModel.animations_global}",
                                 style = MaterialTheme.typography.titleMedium.copy(titre!!),
                             )
                         } else {
                             Text(
-                                text = "Animation restante : ${viewModel.animations_left} sur ${viewModel.animations_global}",
+                                text = "Animation : ${viewModel.animations_pass} sur ${viewModel.animations_global}",
                                 style = MaterialTheme.typography.titleMedium.copy(titre!!),
                             )
                         }
@@ -388,6 +391,119 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
+    fun UserInfoScreen() {
+        Scaffold(
+            topBar = {
+                // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Informations utilisateur",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = barColor!!,
+                        titleContentColor = barTitre!!,
+                    ),
+
+                    navigationIcon = {
+                        // Ajout d'une icône de déconnexion à droite de la barre d'application
+                        IconButton(onClick = {
+                            navController.navigate("series")
+                        }) {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowBack,
+                                tint = barTitre!!,
+                                contentDescription = "Retour Series"
+                            )
+                        }
+                    },
+                )
+            },
+            bottomBar = {
+                ShowSnackBarHost(snackState)
+            }
+        ) {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    ElevatedCard(
+                        // Utilisation de ElevatedCard au lieu de Button
+                        shape = RoundedCornerShape(10.dp),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 10.dp
+                        ),
+
+                        colors = CardDefaults.cardColors(
+                            containerColor = barColor!!,
+                        ),
+                        modifier = Modifier
+                            .padding(8.dp),
+                    ) {
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+
+                        ) {
+                            Text(
+                                text = "Prénom : ${viewModel.prenomUser}",
+                                style = MaterialTheme.typography.titleLarge.copy(barTitre!!),
+                                modifier = Modifier.padding(10.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Nom : ${viewModel.nomUser}",
+                                style = MaterialTheme.typography.titleLarge.copy(barTitre!!),
+                                modifier = Modifier.padding(10.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Email : ${viewModel.emailUser}",
+                                style = MaterialTheme.typography.titleLarge.copy(barTitre!!),
+                                modifier = Modifier.padding(10.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Rôle : ${viewModel.roleUser}",
+                                style = MaterialTheme.typography.titleLarge.copy(barTitre!!),
+                                modifier = Modifier.padding(10.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Button(
+                                modifier = Modifier.padding(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    Color.Red,
+                                    contentColor = barTitre!!
+                                ),
+                                onClick = {
+                                    sessionManager.isLoggedIn = false
+                                    sessionManager.userId = null
+                                    navController.navigate("login")
+                                },
+                            ) {
+                                Text("Deconnexion")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
     fun SeriesScreen() {
         val series = viewModel.series
         Scaffold(
@@ -404,13 +520,13 @@ class MainActivity : ComponentActivity() {
                     actions = {
                         IconButton(
                             onClick = {
-                                loadSeriesApi()
+                                navController.navigate("userInfo")
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Refresh,
+                                imageVector = Icons.Rounded.AccountCircle,
                                 tint = barTitre!!,
-                                contentDescription = "Rafraîchir les series"
+                                contentDescription = "Déconnexion"
                             )
 
                         }
@@ -422,14 +538,13 @@ class MainActivity : ComponentActivity() {
                     navigationIcon = {
                         // Ajout d'une icône de déconnexion à droite de la barre d'application
                         IconButton(onClick = {
-                            sessionManager.isLoggedIn = false
-                            sessionManager.userId = null
-                            navController.navigate("login")
+                            loadSeriesApi()
                         }) {
+
                             Icon(
-                                imageVector = Icons.Rounded.Close,
+                                imageVector = Icons.Filled.Refresh,
                                 tint = barTitre!!,
-                                contentDescription = "Déconnexion"
+                                contentDescription = "Rafraîchir les series"
                             )
                         }
                     },
@@ -444,18 +559,17 @@ class MainActivity : ComponentActivity() {
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        if (isLoadingSerie.value) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.width(64.dp),
-                                color = titre!!,
-                                trackColor = barTitre!!,
-                            )
-                        } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (isLoadingSerie.value) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.width(64.dp),
+                            color = titre!!,
+                            trackColor = barTitre!!,
+                        )
+                    } else {
                         if (series.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(80.dp))
                             Text(
@@ -468,6 +582,7 @@ class MainActivity : ComponentActivity() {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(2),
                                 verticalArrangement = Arrangement.spacedBy(20.dp),
+                                modifier = Modifier.fillMaxHeight(0.85f),
                                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                             ) {
                                 items(series.size) { index ->
@@ -500,7 +615,7 @@ class MainActivity : ComponentActivity() {
                                             Text(
                                                 text = "${index + 1}. ${serie.Nom}",
                                                 textAlign = TextAlign.Center,
-                                                modifier = Modifier.padding(20.dp),
+                                                modifier = Modifier.padding(15.dp),
                                                 style = MaterialTheme.typography.titleLarge.copy(
                                                     barTitre!!
                                                 ),
@@ -510,16 +625,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Text(
-                                text = "Totales des séries : ${viewModel.series_count}",
-                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
-                                modifier = Modifier.padding(bottom = 16.dp),
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
+                                Text(
+                                    text = "Totales des séries : ${viewModel.series_count}",
+                                    style = MaterialTheme.typography.titleMedium.copy(titre!!),
+                                    modifier = Modifier.padding(20.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                    }
+
+
                 }
             }
         }
@@ -557,21 +672,6 @@ class MainActivity : ComponentActivity() {
                 if (response.isSuccessful) {
                     val userResponse = response.body()
                     if (userResponse?.success == true) {
-                        val user = userResponse.user
-                        viewModel.userId = user?.ID_User.toString()
-                        viewModel.prenomUser = user?.Prenom.toString()
-                        viewModel.nomUser = user?.Nom.toString()
-                        viewModel.roleIdUser = user?.ID_Role.toString()
-                        viewModel.roleUser = user?.Role.toString()
-                        // Après une connexion réussie
-                        sessionManager.isLoggedIn = true
-                        sessionManager.userId = user?.ID_User.toString()
-                        sessionManager.prenomUser = user?.Prenom.toString()
-                        sessionManager.nomUser = user?.Nom.toString()
-                        sessionManager.roleIdUser = user?.ID_Role.toString()
-                        sessionManager.roleUser = user?.Role.toString()
-                        loadSeriesApi()
-                        navController.navigate("series")
 
                         coroutineScope.launch {
                             snackState.showSnackbar(
@@ -580,6 +680,24 @@ class MainActivity : ComponentActivity() {
                                 withDismissAction = true
                             )
                         }
+                        val user = userResponse.user
+
+                        viewModel.userId = user?.ID_User.toString()
+                        viewModel.prenomUser = user?.Prenom.toString()
+                        viewModel.emailUser = user?.Email.toString()
+                        viewModel.nomUser = user?.Nom.toString()
+                        viewModel.roleIdUser = user?.ID_Role.toString()
+                        viewModel.roleUser = user?.Role.toString()
+                        // Après une connexion réussie
+                        sessionManager.isLoggedIn = true
+                        sessionManager.userId = user?.ID_User.toString()
+                        sessionManager.prenomUser = user?.Prenom.toString()
+                        sessionManager.emailUser = user?.Email.toString()
+                        sessionManager.nomUser = user?.Nom.toString()
+                        sessionManager.roleIdUser = user?.ID_Role.toString()
+                        sessionManager.roleUser = user?.Role.toString()
+                        loadSeriesApi()
+                        navController.navigate("series")
                     } else {
                         val errorMsg = userResponse?.error_msg ?: "Erreur inconnue"
                         // Afficher un Snackbar avec un message d'erreur
@@ -635,7 +753,7 @@ class MainActivity : ComponentActivity() {
                                 launchSingleTop = true
                             }
                             viewModel.animations = animations
-                            viewModel.animations_left = animationsResponse.animations_count
+                            viewModel.animations_pass = 1
                             viewModel.animations_global = animationsResponse.animations_count
                         } else {
                             coroutineScope.launch {
