@@ -2,6 +2,7 @@ package com.hood.cartes.carteanimee.models
 
 data class AnimationsResponse(
     val success: Boolean,
+    val animations_count:Int,
     val animations: List<Animations>?, // Modifier pour une liste de Serie
     val error_msg: String?
 )

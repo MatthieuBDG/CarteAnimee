@@ -1,6 +1,7 @@
 package com.hood.cartes.carteanimee.models
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
@@ -16,4 +17,6 @@ class ViewModel {
     var currentSerieName by mutableStateOf("")
     /* Animations */
     var animations: List<Animations> = listOf()
+    var animations_global by mutableIntStateOf(0)
+    var animations_left by mutableIntStateOf(0)
 }

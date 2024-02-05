@@ -63,7 +63,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -243,13 +242,27 @@ class MainActivity : ComponentActivity() {
                             player.stop()
                             if (currentIndex < animations.size - 1) {
                                 currentIndex = (currentIndex + 1) % animations.size
+                                viewModel.animations_left--
                             } else {
                                 // Naviguer vers l'écran de série lorsque la série d'animations est terminée
                                 player.release()
                                 navController.navigate("series")
+                                viewModel.animations_left = 0
                             }
                         }) {
                             Text("Animation suivante")
+                        }
+                        Spacer(modifier = Modifier.height(30.dp))
+                        if (viewModel.animations_left > 1) {
+                            Text(
+                                text = "Animations restantes : ${viewModel.animations_left} sur ${viewModel.animations_global}",
+                                style = MaterialTheme.typography.titleMedium.copy(Titre!!),
+                            )
+                        } else {
+                            Text(
+                                text = "Animation restante : ${viewModel.animations_left} sur ${viewModel.animations_global}",
+                                style = MaterialTheme.typography.titleMedium.copy(Titre!!),
+                            )
                         }
 
                     }
@@ -486,6 +499,7 @@ class MainActivity : ComponentActivity() {
         }
         recupSeries()
     }
+
     private fun login(
         email: String, password: String
     ) {
@@ -559,7 +573,8 @@ class MainActivity : ComponentActivity() {
         })
     }
 
-    private fun recupAnimations( serieId: String
+    private fun recupAnimations(
+        serieId: String
     ) {
         val call: Call<AnimationsResponse> = apiService.recupAnimations(serieId)
         call.enqueue(object : Callback<AnimationsResponse> {
@@ -576,6 +591,8 @@ class MainActivity : ComponentActivity() {
                                 launchSingleTop = true
                             }
                             viewModel.animations = animations
+                            viewModel.animations_left = animationsResponse.animations_count
+                            viewModel.animations_global = animationsResponse.animations_count
                         } else {
                             coroutineScope.launch {
                                 snackState.showSnackbar(
@@ -695,15 +712,15 @@ class MainActivity : ComponentActivity() {
             )
         }
     }
-/*
-    override fun onStop() {
-        super.onStop()
-        player.stop()
-    }
+    /*
+        override fun onStop() {
+            super.onStop()
+            player.stop()
+        }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        player.release()
-    }
- */
+        override fun onDestroy() {
+            super.onDestroy()
+            player.release()
+        }
+     */
 }
