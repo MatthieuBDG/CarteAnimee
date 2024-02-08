@@ -23,7 +23,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.rounded.AccountBox
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material3.Button
@@ -105,6 +104,7 @@ class MainActivity : ComponentActivity() {
     private var barTitre: Color? = null
     private var titre: Color? = null
     private lateinit var isLoadingSerie: MutableState<Boolean>
+    private lateinit var seriesError: MutableState<String>
     private lateinit var seriesList: MutableState<List<Series>>
     private val baseUrl = "https://www.demineur-ligne.com/PFE/"
     private val apiService: ApiService by lazy {
@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
         snackState = remember { SnackbarHostState() }
         coroutineScope = rememberCoroutineScope()
         isLoadingSerie = remember { mutableStateOf(false) }
+        seriesError = remember { mutableStateOf("") }
         seriesList = remember { mutableStateOf(viewModel.series) }
         sessionManager = SessionManager(this)
         barColor = Color(ContextCompat.getColor(applicationContext, R.color.bar))
@@ -563,13 +564,21 @@ class MainActivity : ComponentActivity() {
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    if (isLoadingSerie.value) {
+                    if (isLoadingSerie.value && seriesError.value.isEmpty()) {
                         CircularProgressIndicator(
                             modifier = Modifier.width(64.dp),
                             color = titre!!,
                             trackColor = barTitre!!,
+                        )
+                    } else if (seriesError.value.isNotEmpty()) {
+                        Text(
+                            text = seriesError.value,
+                            style = MaterialTheme.typography.titleLarge.copy(titre!!),
+                            modifier = Modifier.padding(16.dp),
+                            fontWeight = FontWeight.Bold
                         )
                     } else {
                         if (seriesList.value.isNotEmpty()) {
@@ -577,7 +586,7 @@ class MainActivity : ComponentActivity() {
                             Text(
                                 text = "Choix de la série : ",
                                 style = MaterialTheme.typography.titleLarge.copy(titre!!),
-                                modifier = Modifier.padding(bottom = 16.dp),
+                                modifier = Modifier.padding(16.dp),
                                 fontWeight = FontWeight.Bold
                             )
 
@@ -627,14 +636,14 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                                Text(
-                                    text = "Totales des séries : ${viewModel.series_count}",
-                                    style = MaterialTheme.typography.titleMedium.copy(titre!!),
-                                    modifier = Modifier.padding(20.dp),
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            Text(
+                                text = "Totales des séries : ${viewModel.series_count}",
+                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
+                                modifier = Modifier.padding(20.dp),
+                                fontWeight = FontWeight.Bold
+                            )
                         }
+                    }
 
 
                 }
@@ -830,6 +839,8 @@ class MainActivity : ComponentActivity() {
                             seriesList.value = series
                             viewModel.series_count = seriesResponse.series_count
                             isLoadingSerie.value = false
+                            seriesError.value = ""
+                            println("seriesEmpty.value: ${seriesError.value}")
                             coroutineScope.launch {
                                 if (seriesResponse.series_count > 1) {
                                     snackState.showSnackbar(
@@ -846,6 +857,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         } else {
+                            seriesError.value = "Aucune série trouvée pour l'utilisateur."
+                            println("seriesError.value: ${seriesError.value}")
                             // La liste des séries est vide
                             coroutineScope.launch {
                                 snackState.showSnackbar(
@@ -858,6 +871,8 @@ class MainActivity : ComponentActivity() {
                     } else {
                         // Gérez les erreurs de connexion (ex: mot de passe incorrect)
                         val errorMsg = seriesResponse?.error_msg ?: "Erreur inconnue"
+                        seriesError.value = errorMsg
+                        println("seriesError.value: ${seriesError.value}")
                         // Affichez le message d'erreur
                         coroutineScope.launch {
                             snackState.showSnackbar(
