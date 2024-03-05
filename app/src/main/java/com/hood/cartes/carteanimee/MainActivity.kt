@@ -5,6 +5,7 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,8 +55,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -73,6 +76,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import coil.ImageLoader
+import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
@@ -328,51 +332,77 @@ class MainActivity : ComponentActivity() {
                 ShowSnackBarHost(snackState)
             }
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Adresse Email") },
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Next
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+            Box(modifier = Modifier.fillMaxSize()) {
+                AsyncImage(
+                    model = "$baseUrl/assets/img/fond/fond.jpg",
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(radiusX = 3.dp, radiusY = 3.dp)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Mot de passe") },
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(onDone = {
-                        login(email, password)
-                        keyboardController?.hide()
-                    }),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    colors = ButtonDefaults.buttonColors(
-                        barColor!!,
-                        contentColor = barTitre!!
-                    ),
-                    onClick = { login(email, password) },
-                    modifier = Modifier.fillMaxWidth()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Connexion")
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(3.dp)
+                            .background(
+                                color = Color.White.copy(alpha = 0.9f),
+                                shape = RoundedCornerShape(5.dp)
+                            ),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        OutlinedTextField(
+                            value = email,
+
+                            onValueChange = { email = it },
+                            label = { Text("Adresse Email") },
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Next
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 7.dp, end = 7.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Mot de passe") },
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(onDone = {
+                                login(email, password)
+                                keyboardController?.hide()
+                            }),
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 7.dp, end = 7.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            colors = ButtonDefaults.buttonColors(
+                                barColor!!,
+                                contentColor = barTitre!!
+                            ),
+                            onClick = { login(email, password) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 7.dp, end = 7.dp, bottom = 5.dp)
+                        ) {
+                            Text("Connexion")
+                        }
+
+                    }
+
                 }
-
             }
-
         }
     }
 
@@ -557,94 +587,103 @@ class MainActivity : ComponentActivity() {
                 ShowSnackBarHost(snackState)
             }
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+            Box(modifier = Modifier.fillMaxSize()) {
+                AsyncImage(
+                    model = "$baseUrl/assets/img/fond/fond.jpg",
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(radiusX = 3.dp, radiusY = 3.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (isLoadingSerie.value && seriesError.value.isEmpty()) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.width(64.dp),
-                            color = titre!!,
-                            trackColor = barTitre!!,
-                        )
-                    } else if (seriesError.value.isNotEmpty()) {
-                        Text(
-                            text = seriesError.value,
-                            style = MaterialTheme.typography.titleLarge.copy(titre!!),
-                            modifier = Modifier.padding(16.dp),
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else {
-                        if (seriesList.value.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(80.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        if (isLoadingSerie.value && seriesError.value.isEmpty()) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.width(64.dp),
+                                color = titre!!,
+                                trackColor = barTitre!!,
+                            )
+                        } else if (seriesError.value.isNotEmpty()) {
                             Text(
-                                text = "Choix de la série : ",
+                                text = seriesError.value,
                                 style = MaterialTheme.typography.titleLarge.copy(titre!!),
                                 modifier = Modifier.padding(16.dp),
                                 fontWeight = FontWeight.Bold
                             )
+                        } else {
+                            if (seriesList.value.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(80.dp))
+                                Text(
+                                    text = "Choix de la série : ",
+                                    style = MaterialTheme.typography.titleLarge.copy(titre!!),
+                                    modifier = Modifier.padding(16.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
 
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
-                                verticalArrangement = Arrangement.spacedBy(20.dp),
-                                modifier = Modifier.fillMaxHeight(0.85f),
-                                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            ) {
-                                items(seriesList.value.size) { index ->
-                                    val serie = seriesList.value[index]
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                                    modifier = Modifier.fillMaxHeight(0.85f),
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                ) {
+                                    items(seriesList.value.size) { index ->
+                                        val serie = seriesList.value[index]
 
-                                    ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
-                                        shape = RoundedCornerShape(10.dp),
-                                        elevation = CardDefaults.cardElevation(
-                                            defaultElevation = 10.dp
-                                        ),
+                                        ElevatedCard( // Utilisation de ElevatedCard au lieu de Button
+                                            shape = RoundedCornerShape(10.dp),
+                                            elevation = CardDefaults.cardElevation(
+                                                defaultElevation = 10.dp
+                                            ),
 
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = barColor!!,
-                                        ),
-                                        modifier = Modifier
-                                            .padding(8.dp),
-                                        onClick = {
-                                            viewModel.currentSerieName = serie.Nom
-                                            recupAnimations(
-                                                serie.ID_Serie
-                                            )
-                                        }
-                                    ) {
-                                        Box(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = barColor!!,
+                                            ),
                                             modifier = Modifier
-                                                .fillMaxWidth(),
-                                            contentAlignment = Alignment.Center
-
+                                                .padding(8.dp),
+                                            onClick = {
+                                                viewModel.currentSerieName = serie.Nom
+                                                recupAnimations(
+                                                    serie.ID_Serie
+                                                )
+                                            }
                                         ) {
-                                            Text(
-                                                text = "${index + 1}. ${serie.Nom}",
-                                                textAlign = TextAlign.Center,
-                                                modifier = Modifier.padding(15.dp),
-                                                style = MaterialTheme.typography.titleLarge.copy(
-                                                    barTitre!!
-                                                ),
-                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(),
+                                                contentAlignment = Alignment.Center
 
+                                            ) {
+                                                Text(
+                                                    text = "${index + 1}. ${serie.Nom}",
+                                                    textAlign = TextAlign.Center,
+                                                    modifier = Modifier.padding(15.dp),
+                                                    style = MaterialTheme.typography.titleLarge.copy(
+                                                        barTitre!!
+                                                    ),
+                                                )
+
+                                            }
                                         }
                                     }
                                 }
+                                Text(
+                                    text = "Totales des séries : ${viewModel.series_count}",
+                                    style = MaterialTheme.typography.titleMedium.copy(titre!!),
+                                    modifier = Modifier.padding(20.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                            Text(
-                                text = "Totales des séries : ${viewModel.series_count}",
-                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
-                                modifier = Modifier.padding(20.dp),
-                                fontWeight = FontWeight.Bold
-                            )
                         }
                     }
-
 
                 }
             }
