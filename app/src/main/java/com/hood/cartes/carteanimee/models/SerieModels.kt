@@ -9,5 +9,8 @@ data class SeriesResponse(
 
 data class Series(
     val ID_Serie: String,
-    val Nom: String
+    val Nom: String,
+    val Pourcentage:Int,
+    val Derniere_Animation:Int
+
 )

@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +27,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -80,6 +84,7 @@ import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
+import com.hood.cartes.carteanimee.models.AdvancementSerieResponse
 import com.hood.cartes.carteanimee.models.AnimationsResponse
 import com.hood.cartes.carteanimee.models.Series
 import com.hood.cartes.carteanimee.models.SeriesResponse
@@ -153,7 +158,7 @@ class MainActivity : ComponentActivity() {
             viewModel.nomUser = sessionManager.nomUser.toString()
             viewModel.roleIdUser = sessionManager.roleIdUser.toString()
             viewModel.roleUser = sessionManager.roleUser.toString()
-            loadSeriesApi()
+            loadSeriesApiWithMessage()
             navController.navigate("series")
         }
 
@@ -198,6 +203,7 @@ class MainActivity : ComponentActivity() {
                     navigationIcon = {
                         // Ajout d'une icône de déconnexion à droite de la barre d'application
                         IconButton(onClick = {
+                            recupSeries()
                             navController.navigate("series")
                             player.stop()
                             player.release()
@@ -259,23 +265,89 @@ class MainActivity : ComponentActivity() {
                                 })
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(colors = ButtonDefaults.buttonColors(
-                            barColor!!,
-                            contentColor = barTitre!!
-                        ), onClick = {
-                            player.stop()
-                            if (currentIndex < animations.size - 1) {
-                                currentIndex = (currentIndex + 1) % animations.size
-                                viewModel.animations_pass++
-                            } else {
-                                player.release()
-                                // Naviguer vers l'écran de série lorsque la série d'animations est terminée
-                                navController.navigate("series")
-                                viewModel.animations_pass = 1
+
+                        // Boutons pour l'animation suivante et précédente dans une Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(30.dp),
+                            horizontalArrangement = if (currentIndex > 0) Arrangement.SpaceBetween else Arrangement.Center
+                        ) {
+                            if (currentIndex > 0) {
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(
+                                        barColor!!,
+                                        contentColor = barTitre!!
+                                    ),
+                                    onClick = {
+                                        player.stop()
+                                        if (currentIndex > 0) {
+                                            avancementSerie(
+                                                viewModel.serieId,
+                                                viewModel.userId,
+                                                viewModel.animations_pass
+                                            )
+                                            currentIndex--
+                                            viewModel.animations_pass--
+
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.KeyboardArrowLeft,
+                                        tint = barTitre!!,
+                                        contentDescription = "Précédente"
+                                    )
+                                    Text("Précédente")
+                                }
                             }
-                        }) {
-                            Text("Animation suivante")
+                            Button(
+                                colors = ButtonDefaults.buttonColors(
+                                    barColor!!,
+                                    contentColor = barTitre!!
+                                ),
+                                onClick = {
+                                    player.stop()
+                                    if (currentIndex < animations.size - 1) {
+                                        currentIndex = (currentIndex + 1) % animations.size
+                                        avancementSerie(
+                                            viewModel.serieId,
+                                            viewModel.userId,
+                                            viewModel.animations_pass
+                                        )
+                                        viewModel.animations_pass++
+                                    } else {
+                                        player.release()
+                                        // Naviguer vers l'écran de série lorsque la série d'animations est terminée
+                                        navController.navigate("series")
+                                        avancementSerie(
+                                            viewModel.serieId,
+                                            viewModel.userId,
+                                            viewModel.animations_global
+                                        )
+                                        recupSeries()
+                                        viewModel.animations_pass = 1
+                                    }
+                                }
+                            ) {
+                                if (viewModel.animations_pass != viewModel.animations_global) {
+                                    Text("Suivante")
+                                    Icon(
+                                        imageVector = Icons.Rounded.KeyboardArrowRight,
+                                        tint = barTitre!!,
+                                        contentDescription = "Suivante"
+                                    )
+                                } else {
+                                    Text("Terminer")
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        tint = Color.Green,
+                                        contentDescription = "Suivante"
+                                    )
+                                }
+                            }
                         }
+
                         Spacer(modifier = Modifier.height(30.dp))
                         if (viewModel.animations_global > 1) {
                             Text(
@@ -571,7 +643,7 @@ class MainActivity : ComponentActivity() {
                     navigationIcon = {
                         // Ajout d'une icône de déconnexion à droite de la barre d'application
                         IconButton(onClick = {
-                            loadSeriesApi()
+                            loadSeriesApiWithMessage()
                         }) {
 
                             Icon(
@@ -651,6 +723,12 @@ class MainActivity : ComponentActivity() {
                                                 .padding(8.dp),
                                             onClick = {
                                                 viewModel.currentSerieName = serie.Nom
+                                                viewModel.serieId = serie.ID_Serie
+                                                avancementSerie(
+                                                    viewModel.serieId,
+                                                    viewModel.userId,
+                                                    0
+                                                )
                                                 recupAnimations(
                                                     serie.ID_Serie
                                                 )
@@ -663,13 +741,18 @@ class MainActivity : ComponentActivity() {
 
                                             ) {
                                                 Text(
-                                                    text = "${index + 1}. ${serie.Nom}",
+                                                    if (serie.Pourcentage > 0) {
+                                                        "${index + 1}. ${serie.Nom}\n${serie.Pourcentage}%"
+                                                    } else {
+                                                        "${index + 1}. ${serie.Nom}"
+                                                    },
                                                     textAlign = TextAlign.Center,
                                                     modifier = Modifier.padding(15.dp),
                                                     style = MaterialTheme.typography.titleLarge.copy(
                                                         barTitre!!
-                                                    ),
+                                                    )
                                                 )
+
 
                                             }
                                         }
@@ -691,7 +774,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @SuppressLint("CoroutineCreationDuringComposition")
-    private fun loadSeriesApi() {
+    private fun loadSeriesApiWithMessage() {
         coroutineScope.launch {
             snackState.showSnackbar(
                 "Chargement des séries en cours...",
@@ -746,7 +829,7 @@ class MainActivity : ComponentActivity() {
                         sessionManager.nomUser = user?.Nom.toString()
                         sessionManager.roleIdUser = user?.ID_Role.toString()
                         sessionManager.roleUser = user?.Role.toString()
-                        loadSeriesApi()
+                        loadSeriesApiWithMessage()
                         navController.navigate("series")
                     } else {
                         val errorMsg = userResponse?.error_msg ?: "Erreur inconnue"
@@ -877,6 +960,7 @@ class MainActivity : ComponentActivity() {
                             viewModel.series = series
                             seriesList.value = series
                             viewModel.series_count = seriesResponse.series_count
+
                             isLoadingSerie.value = false
                             seriesError.value = ""
                             println("seriesEmpty.value: ${seriesError.value}")
@@ -946,6 +1030,65 @@ class MainActivity : ComponentActivity() {
 
         })
 
+    }
+
+    private fun avancementSerie(
+        serieId: String, userId: String, animationLast: Int
+    ) {
+        if (serieId.isBlank() || userId.isBlank()) {
+            coroutineScope.launch {
+                snackState.showSnackbar(
+                    "Veuillez saisir un serieId et userId.",
+                    duration = SnackbarDuration.Short,
+                    withDismissAction = true
+                )
+            }
+            return
+        }
+        val call: Call<AdvancementSerieResponse> =
+            apiService.envoiAdvancementSerie(serieId, userId, animationLast)
+        call.enqueue(object : Callback<AdvancementSerieResponse> {
+            override fun onResponse(
+                call: Call<AdvancementSerieResponse>,
+                response: Response<AdvancementSerieResponse>
+            ) {
+                if (response.isSuccessful) {
+                    val advancementSerieResponse = response.body()
+                    if (advancementSerieResponse?.success == false) {
+                        val errorMsg = advancementSerieResponse.error_msg ?: "Erreur inconnue"
+                        // Afficher un Snackbar avec un message d'erreur
+                        coroutineScope.launch {
+                            snackState.showSnackbar(
+                                errorMsg,
+                                duration = SnackbarDuration.Short,
+                                withDismissAction = true
+                            )
+                        }
+                    }
+                } else {
+                    // Afficher un Snackbar avec un message d'erreur
+                    coroutineScope.launch {
+                        snackState.showSnackbar(
+                            "Erreur de connexion. Veuillez réessayer.",
+                            duration = SnackbarDuration.Short,
+                            withDismissAction = true
+
+                        )
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call<AdvancementSerieResponse>, t: Throwable) {
+                // Afficher un Snackbar avec un message d'erreur
+                coroutineScope.launch {
+                    snackState.showSnackbar(
+                        "Erreur de connexion. Veuillez réessayer.",
+                        duration = SnackbarDuration.Short,
+                        withDismissAction = true
+                    )
+                }
+            }
+        })
     }
 
     @Deprecated("Deprecated in Java")

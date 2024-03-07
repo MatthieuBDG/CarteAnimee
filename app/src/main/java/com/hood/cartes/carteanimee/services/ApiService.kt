@@ -1,5 +1,6 @@
 package com.hood.cartes.carteanimee.services
 
+import com.hood.cartes.carteanimee.models.AdvancementSerieResponse
 import com.hood.cartes.carteanimee.models.AnimationsResponse
 import com.hood.cartes.carteanimee.models.SeriesResponse
 import com.hood.cartes.carteanimee.models.UserResponse
@@ -23,4 +24,11 @@ interface ApiService {
     fun recupAnimations(
         @Query("id_serie") serieId: String,
     ): Call<AnimationsResponse>
+
+    @GET("avancementserie")
+    fun envoiAdvancementSerie(
+        @Query("id_serie") serieId: String,
+        @Query("id_user") userId: String,
+        @Query("last_animation") animationLast: Int,
+    ): Call<AdvancementSerieResponse>
 }

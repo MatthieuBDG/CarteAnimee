@@ -15,6 +15,8 @@ class ViewModel {
     var roleUser by mutableStateOf("")
     /* Series */
     var series: List<Series> = listOf()
+    var lastSerieAnimation by mutableStateOf(0)
+    var serieId by mutableStateOf("")
     var currentSerieName by mutableStateOf("")
     var series_count by mutableIntStateOf(0)
     /* Animations */
