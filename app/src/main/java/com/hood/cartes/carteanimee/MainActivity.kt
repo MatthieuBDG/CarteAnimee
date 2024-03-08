@@ -24,12 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -67,6 +69,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -184,6 +187,7 @@ class MainActivity : ComponentActivity() {
         var currentIndex by remember { mutableIntStateOf(0) }
         val animations = viewModel.animations
         player = ExoPlayer.Builder(this).build()
+
         Scaffold(
             topBar = {
                 // Utilisation de CenterAlignedTopAppBar au lieu de TopAppBar
@@ -222,152 +226,200 @@ class MainActivity : ComponentActivity() {
             }
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                if (animations.isNotEmpty()) {
-                    val currentAnimation = animations[currentIndex]
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxHeight(0.90f)
+
                     ) {
-                        Text(
-                            text = currentAnimation.Nom,
-                            style = MaterialTheme.typography.displaySmall.copy(titre!!),
-                            fontWeight = FontWeight.Bold
+                        if (animations.isNotEmpty()) {
+                            val currentAnimation = animations[currentIndex]
+                            var currentGifPath by remember { mutableStateOf(currentAnimation.Chemin_Gif_Reel) }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Spacer(modifier = Modifier.height(40.dp))
+                                Text(
+                                    text = currentAnimation.Nom,
+                                    style = MaterialTheme.typography.displaySmall.copy(titre!!),
+                                    fontWeight = FontWeight.Bold
 
-                        )
-                        val imageLoader = ImageLoader.Builder(this@MainActivity).components {
-                            if (SDK_INT >= 28) {
-                                add(ImageDecoderDecoder.Factory())
-                            } else {
-                                add(GifDecoder.Factory())
-                            }
-                        }.build()
-                        SubcomposeAsyncImage(model = "$baseUrl${currentAnimation.Chemin_Gif}",
-                            imageLoader = imageLoader,
-                            contentDescription = currentAnimation.Nom,
-                            loading = {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = titre!!,
-                                    trackColor = barTitre!!,
                                 )
-                            },
-                            modifier = Modifier
-                                .padding(15.dp) // Ajouter une marge de 10dp de chaque côté
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp)) // Arrondir les coins avec un rayon de 20dp
-                                .clickable {
-                                    val mediaItem =
-                                        MediaItem.fromUri("$baseUrl${currentAnimation.Chemin_Audio}")
-                                    player.setMediaItem(mediaItem)
-                                    player.prepare()
-                                    player.play()
-                                })
+                                val imageLoader =
+                                    ImageLoader.Builder(this@MainActivity).components {
+                                        if (SDK_INT >= 28) {
+                                            add(ImageDecoderDecoder.Factory())
+                                        } else {
+                                            add(GifDecoder.Factory())
+                                        }
+                                    }.build()
+                                SubcomposeAsyncImage(model = "$baseUrl${currentGifPath}",
+                                    imageLoader = imageLoader,
+                                    contentDescription = currentAnimation.Nom,
+                                    loading = {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            color = titre!!,
+                                            trackColor = barTitre!!,
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .padding(15.dp) // Ajouter une marge de 10dp de chaque côté
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(20.dp)) // Arrondir les coins avec un rayon de 20dp
+                                        .clickable {
+                                            val mediaItem =
+                                                MediaItem.fromUri("$baseUrl${currentAnimation.Chemin_Audio}")
+                                            player.setMediaItem(mediaItem)
+                                            player.prepare()
+                                            player.play()
+                                        })
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Button(
+                                        colors = ButtonDefaults.buttonColors(
+                                            barColor!!,
+                                            contentColor = barTitre!!
+                                        ),
+                                        onClick = {
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                                            // Logique pour changer l'image GIF ici
+                                            currentGifPath =
+                                                if (currentGifPath == currentAnimation.Chemin_Gif_Reel) {
+                                                    currentAnimation.Chemin_Gif_Fictif
+                                                } else {
+                                                    currentAnimation.Chemin_Gif_Reel
+                                                }
+                                        }
+                                    ) {
+                                        if (currentGifPath == currentAnimation.Chemin_Gif_Reel) {
+                                            Text("Image dessin animé")
+                                        } else {
+                                            Text("Image réel")
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Rounded.Refresh,
+                                            tint = barTitre!!,
+                                            contentDescription = null
+                                        )
+                                    }
+                                }
+                                // Boutons pour l'animation suivante et précédente dans une Row
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    horizontalArrangement = if (currentIndex > 0) Arrangement.SpaceBetween else Arrangement.Center
+                                ) {
+                                    if (currentIndex > 0) {
+                                        Button(
+                                            colors = ButtonDefaults.buttonColors(
+                                                barColor!!,
+                                                contentColor = barTitre!!
+                                            ),
+                                            onClick = {
+                                                player.stop()
+                                                if (currentIndex > 0) {
+                                                    avancementSerie(
+                                                        viewModel.serieId,
+                                                        viewModel.userId,
+                                                        viewModel.animations_pass
+                                                    )
+                                                    currentIndex--
+                                                    currentGifPath =
+                                                        animations[currentIndex].Chemin_Gif_Reel
+                                                    viewModel.animations_pass--
 
-                        // Boutons pour l'animation suivante et précédente dans une Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(30.dp),
-                            horizontalArrangement = if (currentIndex > 0) Arrangement.SpaceBetween else Arrangement.Center
-                        ) {
-                            if (currentIndex > 0) {
-                                Button(
-                                    colors = ButtonDefaults.buttonColors(
-                                        barColor!!,
-                                        contentColor = barTitre!!
-                                    ),
-                                    onClick = {
-                                        player.stop()
-                                        if (currentIndex > 0) {
-                                            avancementSerie(
-                                                viewModel.serieId,
-                                                viewModel.userId,
-                                                viewModel.animations_pass
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.KeyboardArrowLeft,
+                                                tint = barTitre!!,
+                                                contentDescription = "Précédente"
                                             )
-                                            currentIndex--
-                                            viewModel.animations_pass--
-
+                                            Text("Précédente")
                                         }
                                     }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.KeyboardArrowLeft,
-                                        tint = barTitre!!,
-                                        contentDescription = "Précédente"
-                                    )
-                                    Text("Précédente")
-                                }
-                            }
-                            Button(
-                                colors = ButtonDefaults.buttonColors(
-                                    barColor!!,
-                                    contentColor = barTitre!!
-                                ),
-                                onClick = {
-                                    player.stop()
-                                    if (currentIndex < animations.size - 1) {
-                                        currentIndex = (currentIndex + 1) % animations.size
-                                        avancementSerie(
-                                            viewModel.serieId,
-                                            viewModel.userId,
-                                            viewModel.animations_pass
-                                        )
-                                        viewModel.animations_pass++
-                                    } else {
-                                        player.release()
-                                        // Naviguer vers l'écran de série lorsque la série d'animations est terminée
-                                        navController.navigate("series")
-                                        avancementSerie(
-                                            viewModel.serieId,
-                                            viewModel.userId,
-                                            viewModel.animations_global
-                                        )
-                                        recupSeries()
-                                        viewModel.animations_pass = 1
+                                    Button(
+                                        colors = ButtonDefaults.buttonColors(
+                                            barColor!!,
+                                            contentColor = barTitre!!
+                                        ),
+                                        onClick = {
+                                            player.stop()
+                                            if (currentIndex < animations.size - 1) {
+                                                currentIndex = (currentIndex + 1) % animations.size
+                                                currentGifPath =
+                                                    animations[currentIndex].Chemin_Gif_Reel
+                                                avancementSerie(
+                                                    viewModel.serieId,
+                                                    viewModel.userId,
+                                                    viewModel.animations_pass
+                                                )
+                                                viewModel.animations_pass++
+                                            } else {
+                                                player.release()
+                                                // Naviguer vers l'écran de série lorsque la série d'animations est terminée
+                                                navController.navigate("series")
+                                                avancementSerie(
+                                                    viewModel.serieId,
+                                                    viewModel.userId,
+                                                    viewModel.animations_global
+                                                )
+                                                recupSeries()
+                                                viewModel.animations_pass = 1
+                                            }
+                                        }
+                                    ) {
+                                        if (viewModel.animations_pass != viewModel.animations_global) {
+                                            Text("Suivante")
+                                            Icon(
+                                                imageVector = Icons.Rounded.KeyboardArrowRight,
+                                                tint = barTitre!!,
+                                                contentDescription = "Suivante"
+                                            )
+                                        } else {
+                                            Text("Terminer")
+                                            Icon(
+                                                imageVector = Icons.Rounded.Check,
+                                                tint = Color.Green,
+                                                contentDescription = "Suivante"
+                                            )
+                                        }
                                     }
                                 }
-                            ) {
-                                if (viewModel.animations_pass != viewModel.animations_global) {
-                                    Text("Suivante")
-                                    Icon(
-                                        imageVector = Icons.Rounded.KeyboardArrowRight,
-                                        tint = barTitre!!,
-                                        contentDescription = "Suivante"
-                                    )
-                                } else {
-                                    Text("Terminer")
-                                    Icon(
-                                        imageVector = Icons.Rounded.Check,
-                                        tint = Color.Green,
-                                        contentDescription = "Suivante"
-                                    )
-                                }
+                            }
+                        } else {
+                            coroutineScope.launch {
+                                snackState.showSnackbar(
+                                    "Aucune animation disponible",
+                                    duration = SnackbarDuration.Short,
+                                    withDismissAction = true
+                                )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(30.dp))
-                        if (viewModel.animations_global > 1) {
-                            Text(
-                                text = "Animations : ${viewModel.animations_pass} sur ${viewModel.animations_global}",
-                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
-                            )
-                        } else {
-                            Text(
-                                text = "Animation : ${viewModel.animations_pass} sur ${viewModel.animations_global}",
-                                style = MaterialTheme.typography.titleMedium.copy(titre!!),
-                            )
-                        }
-
                     }
-                } else {
-                    coroutineScope.launch {
-                        snackState.showSnackbar(
-                            "Aucune animation disponible",
-                            duration = SnackbarDuration.Short,
-                            withDismissAction = true
+                    if (viewModel.animations_global > 1) {
+                        Text(
+                            text = "Animations : ${viewModel.animations_pass} sur ${viewModel.animations_global}",
+                            style = MaterialTheme.typography.titleMedium.copy(titre!!),
+                        )
+                    } else {
+                        Text(
+                            text = "Animation : ${viewModel.animations_pass} sur ${viewModel.animations_global}",
+                            style = MaterialTheme.typography.titleMedium.copy(titre!!),
                         )
                     }
                 }
@@ -381,6 +433,7 @@ class MainActivity : ComponentActivity() {
     fun LoginScreen() {
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
+        var passwordVisibility by remember { mutableStateOf(false) }
         val keyboardController = LocalSoftwareKeyboardController.current
 
         Scaffold(
@@ -430,7 +483,6 @@ class MainActivity : ComponentActivity() {
                     ) {
                         OutlinedTextField(
                             value = email,
-
                             onValueChange = { email = it },
                             label = { Text("Adresse Email") },
                             keyboardOptions = KeyboardOptions(
@@ -452,10 +504,20 @@ class MainActivity : ComponentActivity() {
                                 login(email, password)
                                 keyboardController?.hide()
                             }),
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = if (passwordVisibility) VisualTransformation.None else PasswordVisualTransformation(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 7.dp, end = 7.dp)
+                                .padding(start = 7.dp, end = 7.dp),
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { passwordVisibility = !passwordVisibility },
+                                ) {
+                                    Icon(
+                                        imageVector = if (passwordVisibility) Icons.Default.Info else Icons.Default.Info,
+                                        contentDescription = if (passwordVisibility) "Hide Password" else "Show Password"
+                                    )
+                                }
+                            }
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
@@ -470,13 +532,12 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text("Connexion")
                         }
-
                     }
-
                 }
             }
         }
     }
+
 
     @Composable
     fun ShowSnackBarHost(snackState: SnackbarHostState) {

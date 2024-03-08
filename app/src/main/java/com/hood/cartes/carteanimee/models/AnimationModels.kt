@@ -10,6 +10,7 @@ data class AnimationsResponse(
 data class Animations(
     val ID_Animation: String,
     val Nom: String,
-    val Chemin_Gif: String,
+    val Chemin_Gif_Reel: String,
+    val Chemin_Gif_Fictif: String,
     val Chemin_Audio: String
 )
