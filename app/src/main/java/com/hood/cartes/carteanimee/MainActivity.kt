@@ -280,6 +280,7 @@ class MainActivity : ComponentActivity() {
                                             player.setMediaItem(mediaItem)
                                             player.prepare()
                                             player.play()
+                                            viewModel.songplay = true
                                         })
                                 Row(
                                     modifier = Modifier
@@ -332,6 +333,7 @@ class MainActivity : ComponentActivity() {
                                                 player.stop()
                                                 if (currentIndex > 0) {
                                                     avancementSerie(
+                                                        false,
                                                         viewModel.serieId,
                                                         viewModel.userId,
                                                         viewModel.animations_pass
@@ -340,7 +342,7 @@ class MainActivity : ComponentActivity() {
                                                     currentGifPath =
                                                         animations[currentIndex].Chemin_Gif_Reel
                                                     viewModel.animations_pass--
-
+                                                    viewModel.songplay = false
                                                 }
                                             }
                                         ) {
@@ -364,22 +366,26 @@ class MainActivity : ComponentActivity() {
                                                 currentGifPath =
                                                     animations[currentIndex].Chemin_Gif_Reel
                                                 avancementSerie(
+                                                    false,
                                                     viewModel.serieId,
                                                     viewModel.userId,
                                                     viewModel.animations_pass
                                                 )
                                                 viewModel.animations_pass++
+                                                viewModel.songplay = false
                                             } else {
                                                 player.release()
                                                 // Naviguer vers l'écran de série lorsque la série d'animations est terminée
                                                 navController.navigate("series")
                                                 avancementSerie(
+                                                    false,
                                                     viewModel.serieId,
                                                     viewModel.userId,
                                                     viewModel.animations_global
                                                 )
                                                 recupSeries()
                                                 viewModel.animations_pass = 1
+                                                viewModel.songplay = false
                                             }
                                         }
                                     ) {
@@ -786,10 +792,12 @@ class MainActivity : ComponentActivity() {
                                                 viewModel.currentSerieName = serie.Nom
                                                 viewModel.serieId = serie.ID_Serie
                                                 avancementSerie(
+                                                    true,
                                                     viewModel.serieId,
                                                     viewModel.userId,
                                                     0
                                                 )
+                                                viewModel.songplay = false
                                                 recupAnimations(
                                                     serie.ID_Serie
                                                 )
@@ -1094,62 +1102,80 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun avancementSerie(
-        serieId: String, userId: String, animationLast: Int
+        start: Boolean, serieId: String, userId: String, animationLast: Int
     ) {
-        if (serieId.isBlank() || userId.isBlank()) {
+        if(viewModel.songplay || start) {
             coroutineScope.launch {
                 snackState.showSnackbar(
-                    "Veuillez saisir un serieId et userId.",
+                    "Progression",
                     duration = SnackbarDuration.Short,
                     withDismissAction = true
+
                 )
             }
-            return
-        }
-        val call: Call<AdvancementSerieResponse> =
-            apiService.envoiAdvancementSerie(serieId, userId, animationLast)
-        call.enqueue(object : Callback<AdvancementSerieResponse> {
-            override fun onResponse(
-                call: Call<AdvancementSerieResponse>,
-                response: Response<AdvancementSerieResponse>
-            ) {
-                if (response.isSuccessful) {
-                    val advancementSerieResponse = response.body()
-                    if (advancementSerieResponse?.success == false) {
-                        val errorMsg = advancementSerieResponse.error_msg ?: "Erreur inconnue"
+            if (serieId.isBlank() || userId.isBlank()) {
+                coroutineScope.launch {
+                    snackState.showSnackbar(
+                        "Veuillez saisir un serieId et userId.",
+                        duration = SnackbarDuration.Short,
+                        withDismissAction = true
+                    )
+                }
+                return
+            }
+            val call: Call<AdvancementSerieResponse> =
+                apiService.envoiAdvancementSerie(serieId, userId, animationLast)
+            call.enqueue(object : Callback<AdvancementSerieResponse> {
+                override fun onResponse(
+                    call: Call<AdvancementSerieResponse>,
+                    response: Response<AdvancementSerieResponse>
+                ) {
+                    if (response.isSuccessful) {
+                        val advancementSerieResponse = response.body()
+                        if (advancementSerieResponse?.success == false) {
+                            val errorMsg = advancementSerieResponse.error_msg ?: "Erreur inconnue"
+                            // Afficher un Snackbar avec un message d'erreur
+                            coroutineScope.launch {
+                                snackState.showSnackbar(
+                                    errorMsg,
+                                    duration = SnackbarDuration.Short,
+                                    withDismissAction = true
+                                )
+                            }
+                        }
+                    } else {
                         // Afficher un Snackbar avec un message d'erreur
                         coroutineScope.launch {
                             snackState.showSnackbar(
-                                errorMsg,
+                                "Erreur de connexion. Veuillez réessayer.",
                                 duration = SnackbarDuration.Short,
                                 withDismissAction = true
                             )
                         }
                     }
-                } else {
+                }
+
+                override fun onFailure(call: Call<AdvancementSerieResponse>, t: Throwable) {
                     // Afficher un Snackbar avec un message d'erreur
                     coroutineScope.launch {
                         snackState.showSnackbar(
                             "Erreur de connexion. Veuillez réessayer.",
                             duration = SnackbarDuration.Short,
                             withDismissAction = true
-
                         )
                     }
                 }
-            }
+            })
+        }else{
+            coroutineScope.launch {
+                snackState.showSnackbar(
+                    "Pas de progression",
+                    duration = SnackbarDuration.Short,
+                    withDismissAction = true
 
-            override fun onFailure(call: Call<AdvancementSerieResponse>, t: Throwable) {
-                // Afficher un Snackbar avec un message d'erreur
-                coroutineScope.launch {
-                    snackState.showSnackbar(
-                        "Erreur de connexion. Veuillez réessayer.",
-                        duration = SnackbarDuration.Short,
-                        withDismissAction = true
-                    )
-                }
+                )
             }
-        })
+        }
     }
 
     @Deprecated("Deprecated in Java")
